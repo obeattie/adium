@@ -20,7 +20,6 @@
 #import "AIEmoticonPackPreviewView.h"
 #import "AIEmoticonPreferences.h"
 #import "AIEmoticonController.h"
-#import <AIUtilities/AIAlternatingRowTableView.h>
 #import <AIUtilities/AITableViewAdditions.h>
 #import <AIUtilities/AIGenericViewCell.h>
 #import <AIUtilities/AIImageAdditions.h>
@@ -72,11 +71,10 @@
 //- (void)viewDidLoad
 - (void)windowDidLoad
 {
-    //Pack table
-    [table_emoticonPacks registerForDraggedTypes:[NSArray arrayWithObject:EMOTICON_PACK_DRAG_TYPE]];
+	//Pack table
+	[table_emoticonPacks registerForDraggedTypes:[NSArray arrayWithObject:EMOTICON_PACK_DRAG_TYPE]];
 	
 	//Configure the outline view
-	[table_emoticonPacks setDrawsGradientSelection:YES];
 	[[table_emoticonPacks tableColumnWithIdentifier:@"Emoticons"] setDataCell:[[[AIGenericViewCell alloc] init] autorelease]];
 	[table_emoticonPacks selectRowIndexes:[NSIndexSet indexSetWithIndex:0] byExtendingSelection:NO];
 	[table_emoticonPacks setToolTip:EMOTICON_PACKS_TOOLTIP];
@@ -86,12 +84,12 @@
 
     //Emoticons table
 	selectedEmoticonPack = nil;
-    checkCell = [[NSButtonCell alloc] init];
-    [checkCell setButtonType:NSSwitchButton];
-    [checkCell setControlSize:NSSmallControlSize];
-    [checkCell setTitle:@""];
-    [checkCell setRefusesFirstResponder:YES];
-    [[table_emoticons tableColumnWithIdentifier:@"Enabled"] setDataCell:checkCell];
+	checkCell = [[NSButtonCell alloc] init];
+	[checkCell setButtonType:NSSwitchButton];
+	[checkCell setControlSize:NSSmallControlSize];
+	[checkCell setTitle:@""];
+	[checkCell setRefusesFirstResponder:YES];
+	[[table_emoticons tableColumnWithIdentifier:@"Enabled"] setDataCell:checkCell];
 	[checkCell release];
 
 	NSImageCell *imageCell = [[NSImageCell alloc] initImageCell:nil];

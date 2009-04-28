@@ -132,13 +132,12 @@ static ESFileTransferProgressWindowController *sharedTransferProgressInstance = 
 	}
 
 	//Configure the outline view
-	[outlineView setDrawsGradientSelection:YES];
 	[[[outlineView tableColumns] objectAtIndex:0] setDataCell:[[[AIGenericViewCell alloc] init] autorelease]];
 
 	[outlineView sizeLastColumnToFit];
 	[outlineView setAutoresizesSubviews:YES];
 	[outlineView setColumnAutoresizingStyle:NSTableViewUniformColumnAutoresizingStyle];
-	[outlineView setDrawsAlternatingRows:YES];
+	[outlineView setUsesAlternatingRowBackgroundColors:YES];
 	[outlineView setDataSource:self];
 	[outlineView setDelegate:self];
 

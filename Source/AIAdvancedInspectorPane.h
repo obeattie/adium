@@ -9,12 +9,10 @@
 #import "AIContactInfoContentController.h"
 #import <Adium/AIAccountMenu.h>
 
-@class AIAlternatingRowTableView;
-
 @interface AIAdvancedInspectorPane : NSObject <AIContentInspectorPane, AIAccountMenuDelegate> {
 	IBOutlet	NSView							*inspectorContentView;
 	
-	IBOutlet	AIAlternatingRowTableView		*accountsTableView;
+	IBOutlet	NSTableView		*accountsTableView;
 	IBOutlet	NSTableColumn					*contactsColumn;
 	
 	IBOutlet	NSTextField						*label_account;

@@ -20,7 +20,6 @@
 #import <Adium/CSNewContactAlertWindowController.h>
 #import <Adium/AIContactAlertsControllerProtocol.h>
 #import <Adium/ESContactAlertsViewController.h>
-#import <AIUtilities/AIAlternatingRowTableView.h>
 #import <AIUtilities/AIAutoScrollView.h>
 #import <AIUtilities/AIImageTextCell.h>
 #import <AIUtilities/AIImageAdditions.h>
@@ -349,7 +348,7 @@ int globalAlertAlphabeticalSort(id objectA, id objectB, void *context);
 	[[outlineView_summary tableColumnWithIdentifier:@"action"] setDataCell:verticallyCenteredTextCell];
 	[verticallyCenteredTextCell release];
 
-	[outlineView_summary setDrawsAlternatingRows:YES];
+	[outlineView_summary setUsesAlternatingRowBackgroundColors:YES];
 	[outlineView_summary setIntercellSpacing:NSMakeSize(6.0,6.0)];
 	[outlineView_summary setIndentationPerLevel:0];
 	[outlineView_summary setTarget:self];
