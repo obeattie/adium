@@ -168,7 +168,7 @@ static AIContactHidingController *sharedControllerInstance = nil;
 			return NO;
 	}
 		
-	if (!showIdleContacts && [listObject valueForProperty:@"IdleSince"])
+	if (!showIdleContacts && [listObject boolValueForProperty:@"IsIdle"])
 		return NO;
 	
 	if (!showMobileContacts && listObject.isMobile)
