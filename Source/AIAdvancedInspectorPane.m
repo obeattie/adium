@@ -7,6 +7,7 @@
 //
 
 #import "AIAdvancedInspectorPane.h"
+#import "AINewGroupWindowController.h"
 #import <AIUtilities/AIParagraphStyleAdditions.h>
 #import <Adium/AIListObject.h>
 #import <Adium/AIListContact.h>
@@ -24,6 +25,7 @@
 #import <AIUtilities/AIMenuAdditions.h>
 #import <AIUtilities/AIPopUpButtonAdditions.h>
 #import <AIUtilities/AIStringFormatter.h>
+#import <AIUtilities/AIStringAdditions.h>
 
 #import <Adium/AIAccountMenu.h>
 #import <Adium/AIContactMenu.h>
@@ -149,9 +151,21 @@
 #pragma mark Menus
 -(void)reloadPopup
 {	
+	if (switchingContacts)
+		return;
+	
 	[accountMenu rebuildMenu];
 	
-	[button_addGroup setMenu:[adium.contactController groupMenuWithTarget:self]];
+	NSMenu *groupMenu = [adium.contactController groupMenuWithTarget:self];
+	
+	[groupMenu addItem:[NSMenuItem separatorItem]];
+	
+	[groupMenu addItemWithTitle:[AILocalizedString(@"New Group", nil) stringByAppendingEllipsis]
+						 target:self
+						 action:@selector(addNewGroup:)
+				  keyEquivalent:@""];
+	
+	[button_addGroup setMenu:groupMenu];
 	
 	[self configureControlDimming];
 }
@@ -205,9 +219,14 @@
 
 - (void)contactMenu:(AIContactMenu *)inContactMenu didSelectContact:(AIListContact *)inContact
 {
+	// Avoid triggering a full reload when this ends up creating a new contact.
+	switchingContacts = YES;
+	
 	currentSelectedContact = [adium.contactController contactWithService:inContact.service
-																 account:currentSelectedAccount
-																	 UID:inContact.UID];
+																  account:currentSelectedAccount
+																	  UID:inContact.UID];
+	
+	switchingContacts = NO;
 	
 	// Update the groups.
 	[tableView_groups reloadData];
@@ -227,6 +246,35 @@
 }
 
 #pragma mark Group control
+- (void)addNewGroup:(id)sender
+{
+	AINewGroupWindowController *newGroupController = [AINewGroupWindowController promptForNewGroupOnWindow:inspectorContentView.window];
+	
+	[[NSNotificationCenter defaultCenter] addObserver:self
+											 selector:@selector(newGroupControllerDidEnd:)
+												 name:@"NewGroupWindowControllerDidEnd"
+											   object:newGroupController.window];
+}
+
+- (void)newGroupControllerDidEnd:(NSNotification *)notification
+{
+	NSParameterAssert([notification.object isKindOfClass:[NSWindow class]]);
+	NSParameterAssert([((NSWindow *)notification.object).windowController isKindOfClass:[AINewGroupWindowController class]]);
+	
+	AINewGroupWindowController *windowController = ((NSWindow *)notification.object).windowController;
+	
+	if (windowController.group) {
+		[currentSelectedAccount addContact:currentSelectedContact toGroup:windowController.group];
+		
+		[tableView_groups deselectAll:nil];
+		[tableView_groups reloadData];
+	}
+	
+	[[NSNotificationCenter defaultCenter] removeObserver:self
+													name:@"NewGroupWindowControllerDidEnd"
+												  object:notification.object];
+}
+
 - (void)selectGroup:(id)sender
 {
 	AIListGroup *group = [sender representedObject];

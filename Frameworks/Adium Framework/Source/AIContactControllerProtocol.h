@@ -93,7 +93,7 @@ typedef enum {
 - (AIListBookmark *)existingBookmarkForChatName:(NSString *)inName
 									  onAccount:(AIAccount *)inAccount
 							   chatCreationInfo:(NSDictionary *)inCreationInfo;
-- (AIListBookmark *)bookmarkForChat:(AIChat *)inChat;
+- (AIListBookmark *)bookmarkForChat:(AIChat *)inChat inGroup:(AIListGroup *)group;
 - (void)removeBookmark:(AIListBookmark *)listBookmark;
 
 - (AIMetaContact *)knownMetaContactForGroupingUIDs:(NSArray *)UIDsArray forServices:(NSArray *)servicesArray;
@@ -115,6 +115,7 @@ typedef enum {
 - (void)explodeMetaContact:(AIMetaContact *)metaContact; //Unpack contained contacts and then remove the meta
 - (void)removeListGroup:(AIListGroup *)listGroup;
 - (void)requestAddContactWithUID:(NSString *)contactUID service:(AIService *)inService account:(AIAccount *)inAccount;
+- (void)moveGroup:(AIListGroup *)group fromContactList:(AIContactList *)oldContactList toContactList:(AIContactList *)contactList;
 - (void)moveContact:(AIListObject *)listContact fromGroups:(NSSet *)oldGroups intoGroups:(NSSet *)groups;
 - (void)_moveContactLocally:(AIListContact *)listContact fromGroups:(NSSet *)oldGroups toGroups:(NSSet *)groups;
 @property (readonly, nonatomic) BOOL useContactListGroups;

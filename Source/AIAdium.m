@@ -56,6 +56,7 @@
 #import "ESDebugController.h"
 
 #define ADIUM_TRAC_PAGE						@"http://trac.adium.im/"
+#define ADIUM_CONTRIBUTE_PAGE				@"http://trac.adium.im/wiki/Development"
 #define ADIUM_REPORT_BUG_PAGE				@"http://trac.adium.im/wiki/ReportingBugs"
 #define ADIUM_FORUM_PAGE					AILocalizedString(@"http://forum.adium.im/","Adium forums page. Localized only if a translated version exists.")
 #define ADIUM_FEEDBACK_PAGE					@"mailto:feedback@adium.im"
@@ -75,7 +76,6 @@ static NSString	*prefsCategory;
 
 @implementation AIAdium
 
-//Init
 - (id)init
 {
 	if ((self = [super init])) {
@@ -85,11 +85,9 @@ static NSString	*prefsCategory;
 	return self;
 }
 
-//Core Controllers -----------------------------------------------------------------------------------------------------
 #pragma mark Core Controllers
 @synthesize accountController, chatController, contactController, contentController, dockController, emoticonController, interfaceController, loginController, menuController, preferenceController, soundController, statusController, toolbarController, contactAlertsController, fileTransferController, applescriptabilityController, debugController;
 
-//Loaders --------------------------------------------------------------------------------------------------------
 #pragma mark Loaders
 
 @synthesize componentLoader, pluginLoader;
@@ -101,7 +99,6 @@ static NSString	*prefsCategory;
     return [NSNotificationCenter defaultCenter];
 }
 
-//Startup and Shutdown -------------------------------------------------------------------------------------------------
 #pragma mark Startup and Shutdown
 //Adium is almost done launching, init
 - (void)applicationWillFinishLaunching:(NSNotification *)notification
@@ -226,7 +223,7 @@ static NSString	*prefsCategory;
 	[self openAppropriatePreferencesIfNeeded];
 
 	//If no accounts are setup, run the setup wizard
-	if (([[accountController accounts] count] == 0) || ALWAYS_RUN_SETUP_WIZARD) {
+	if (accountController.accounts.count == 0 || ALWAYS_RUN_SETUP_WIZARD) {
 		[AdiumSetupWizard runWizard];
 	}
 
@@ -253,7 +250,7 @@ static NSString	*prefsCategory;
 														  object:nil];
 	
 	//Broadcast our presence
-	NSConnection *connection = [NSConnection defaultConnection];
+	NSConnection *connection = [[NSConnection alloc] init];
 	[connection setRootObject:self];
 	[connection registerName:@"com.adiumX.adiumX"];
 
@@ -378,9 +375,8 @@ static NSString	*prefsCategory;
 
 @synthesize isQuitting;
 
-//Menu Item Hooks ------------------------------------------------------------------------------------------------------
 #pragma mark Menu Item Hooks
-//Show the about box
+
 - (IBAction)showAboutBox:(id)sender
 {
     [[LNAboutBoxController aboutBoxController] showWindow:nil];
@@ -401,7 +397,7 @@ static NSString	*prefsCategory;
 
 - (IBAction)contibutingToAdium:(id)sender
 {
-	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"http://trac.adiumx.com/wiki/ContributingToAdium"]];
+	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:ADIUM_CONTRIBUTE_PAGE]];
 }
 - (IBAction)donate:(id)sender
 {
@@ -518,7 +514,6 @@ static NSString	*prefsCategory;
 			   afterDelay:0];
 }
 
-//Other -------------------------------------------------------------------------------------------------------
 #pragma mark Other
 //If Adium was launched by double-clicking an associated file, we get this call after willFinishLaunching but before
 //didFinishLaunching

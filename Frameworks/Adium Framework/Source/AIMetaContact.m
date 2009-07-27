@@ -66,7 +66,6 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 		containsOnlyOneUniqueContact = NO;
 		containsOnlyOneService = YES;
 		containedObjectsNeedsSort = NO;
-		delayContainedObjectSorting = NO;
 		saveGroupingChanges = YES;
 	}
 	return self;
@@ -141,7 +140,7 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 	NSMutableSet *targetGroups = [NSMutableSet set];
 
 	if (adium.contactController.useContactListGroups) {
-		if (!self.online && adium.contactController.useOfflineGroup)
+		if (adium.contactController.useOfflineGroup && !self.online && !self.alwaysVisible)
 			[targetGroups addObject:adium.contactController.offlineGroup];
 		else {
 			for (AIListContact *containedContact in self.uniqueContainedObjects) {
@@ -156,21 +155,28 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 }
 
 - (void)removeFromGroup:(AIListObject <AIContainingObject> *)group
-{
-	NSSet	*objectsToRemove = nil;
-	
-	//If the metaContact only has one listContact, we will remove that contact from all accounts
-	if (self.uniqueContainedObjectsCount == 1) {
-		AIListContact	*listContact = [self.uniqueContainedObjects objectAtIndex:0];
-		
-		objectsToRemove = [adium.contactController allContactsWithService:listContact.service UID:listContact.UID];
-		for (AIListContact *contact in objectsToRemove) {
-			[contact removeFromGroup:group];
+{	
+	if (self.groups.count == 1) {
+		if (self.uniqueContainedObjectsCount == 1) {
+			//If the metaContact only has one listContact, we will remove that contact from all accounts
+			AIListContact	*listContact = [self.uniqueContainedObjects objectAtIndex:0];
+			
+			NSSet *objectsToRemove = [adium.contactController allContactsWithService:listContact.service UID:listContact.UID];
+			for (AIListContact *contact in objectsToRemove) {
+				[contact removeFromGroup:group];
+			}
+		} else {	
+			// Otherwise, we just need to explode the meta.
+			[adium.contactController explodeMetaContact:self];
+		}
+	} else {
+		// Otherwise, remove our contained contacts from this group.
+		for (AIListContact *contact in self) {
+			if ([contact.remoteGroups containsObject:group]) {
+				[contact removeFromGroup:group];
+			}
 		}
 	}
-	
-	//Now break the metaContact down, taking out all contacts and putting them back in the main list
-	[adium.contactController explodeMetaContact:self];			
 }
 
 //A metaContact should never be a stranger
@@ -866,7 +872,7 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 - (NSArray *)containedObjects
 {
 	//Sort the containedObjects if the flag tells us it's needed
-	if (containedObjectsNeedsSort && !delayContainedObjectSorting) {
+	if (containedObjectsNeedsSort) {
 		containedObjectsNeedsSort = NO;
 		[_containedObjects sortUsingFunction:containedContactSort context:self];
 	}
@@ -881,7 +887,7 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 //Test for the presence of an object in our group
 - (BOOL)containsObject:(AIListObject *)inObject
 {
-	return [self.containedObjects containsObject:inObject];
+	return [_containedObjects containsObject:inObject];
 }
 
 //Retrieve an object by index
@@ -930,11 +936,6 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 	return !containsOnlyOneUniqueContact;
 }
 
-- (float)orderIndexForObject:(AIListObject *)listObject
-{
-	return [super orderIndexForObject:listObject];
-}
-
 - (void)listObject:(AIListObject *)listObject didSetOrderIndex:(float)inOrderIndex
 {
 	[super listObject:listObject didSetOrderIndex:inOrderIndex];
@@ -951,15 +952,6 @@ NSComparisonResult containedContactSort(AIListContact *objectA, AIListContact *o
 }
 
 #pragma mark Contained Contact sorting
-
-- (void)setDelayContainedObjectSorting:(BOOL)flag
-{
-	delayContainedObjectSorting = flag;
-	
-	if (!delayContainedObjectSorting) {
-		[self containedObjectsOrOrderDidChange];		
-	}
-}
 
 /*!
  * @brief Sort contained contacts, first by order index and then by internalUniqueObjectID

@@ -55,6 +55,8 @@
 - (NSString *)stringByEscapingForShell;
 //- (BOOL)isURLEncoded;
 
+- (NSString *)stringByAddingPercentEscapesForAllCharacters;
+
 /*examples:
  *	receiver                            result
  *	========                            ======
@@ -126,5 +128,7 @@
 - (NSArray *)allLines;
 
 - (BOOL) isCaseInsensitivelyEqualToString:(NSString *)other;
+
+- (unsigned long long)unsignedLongLongValue;
 
 @end

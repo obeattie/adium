@@ -50,6 +50,14 @@
 			<string>NSView</string>
 		</dict>
 		<dict>
+			<key>CLASS</key>
+			<string>NSMenu</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSObject</string>
+		</dict>
+		<dict>
 			<key>ACTIONS</key>
 			<dict>
 				<key>adiumPrint</key>
@@ -97,7 +105,23 @@
 		</dict>
 		<dict>
 			<key>CLASS</key>
+			<string>NSView</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSResponder</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
 			<string>FirstResponder</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSObject</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
+			<string>NSCell</string>
 			<key>LANGUAGE</key>
 			<string>ObjC</string>
 			<key>SUPERCLASS</key>
@@ -138,38 +162,12 @@
 			<string>ObjC</string>
 			<key>OUTLETS</key>
 			<dict>
-				<key>checkBox_quitConfirmEnabled</key>
-				<string>NSButton</string>
-				<key>checkBox_quitConfirmFT</key>
-				<string>NSButton</string>
-				<key>checkBox_quitConfirmOpenChats</key>
-				<string>NSButton</string>
-				<key>checkBox_quitConfirmUnread</key>
-				<string>NSButton</string>
-				<key>checkBox_statusMenuItemBadge</key>
-				<string>NSButton</string>
-				<key>checkBox_statusMenuItemCount</key>
-				<string>NSButton</string>
-				<key>checkBox_statusMenuItemFlash</key>
-				<string>NSButton</string>
 				<key>checkBox_statusWindowAlwaysOnTop</key>
 				<string>NSButton</string>
 				<key>checkBox_statusWindowHideInBackground</key>
 				<string>NSButton</string>
-				<key>checkBox_unreadContentMention</key>
-				<string>NSButton</string>
-				<key>checkBox_unreadConversations</key>
-				<string>NSButton</string>
-				<key>label_dockMenuBarIconCounts</key>
-				<string>NSTextField</string>
-				<key>label_quitConfirmation</key>
-				<string>NSTextField</string>
-				<key>label_statusMenuItem</key>
-				<string>NSTextField</string>
 				<key>label_statusWindow</key>
 				<string>NSTextField</string>
-				<key>matrix_quitConfirmation</key>
-				<string>NSMatrix</string>
 			</dict>
 			<key>SUPERCLASS</key>
 			<string>AIAdvancedPreferencePane</string>

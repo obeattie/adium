@@ -201,6 +201,9 @@ static void buddy_added_cb(PurpleBuddy *buddy)
 			[account updateContact:listContact
 						   toAlias:[NSString stringWithUTF8String:alias]];
 		}
+		
+		// Force a status update for the user. Useful for things like XMPP which might display an error message for an offline contact.
+		buddy_status_changed_cb(buddy, NULL, purple_presence_get_active_status(purple_buddy_get_presence(buddy)), PURPLE_BUDDY_NONE);
 	}
 }
 
@@ -276,7 +279,7 @@ static void chat_join_failed_cb(PurpleConnection *gc, GHashTable *components)
 	CBPurpleAccount	*account = accountLookup(purple_connection_get_account(gc));
 	NSDictionary *componentDict = dictionaryFromHashTable(components);
 
-	for (AIChat *chat in [[adium.chatController.openChats copy] autorelease]) {
+	for (AIChat *chat in adium.chatController.openChats) {
 		if ((chat.account == account) &&
 			[account chatCreationDictionary:chat.chatCreationDictionary isEqualToDictionary:componentDict]) {
 			[account chatJoinDidFail:chat];

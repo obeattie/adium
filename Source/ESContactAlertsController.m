@@ -38,6 +38,8 @@ static	NSMutableDictionary		*globalOnlyEventHandlersByGroup[EVENT_HANDLER_GROUP_
  */
 + (void)initialize
 {
+	if (self != [ESContactAlertsController class])
+		return;
 	static BOOL didInitialize = NO;
 	if (!didInitialize) {
 		for (NSInteger i = 0; i < EVENT_HANDLER_GROUP_COUNT; i++) {
@@ -477,6 +479,25 @@ NSInteger eventIDSort(id objectA, id objectB, void *context) {
 	return @"";
 }
 
+- (NSString *)descriptionForCombinedEventID:(NSString *)eventID
+							  forListObject:(AIListObject *)listObject
+									forChat:(AIChat *)chat
+								  withCount:(NSUInteger)count
+{
+	id <AIEventHandler>	eventHandler;
+	
+	eventHandler = [eventHandlers objectForKey:eventID];
+	if (!eventHandler) eventHandler = [globalOnlyEventHandlers objectForKey:eventID];
+	
+	if (eventHandler) {
+		return [eventHandler descriptionForCombinedEventID:eventID
+											 forListObject:listObject
+												   forChat:chat
+												 withCount:count];
+	}
+	
+	return @"";	
+}
 
 //Actions --------------------------------------------------------------------------------------------------------------
 #pragma mark Actions

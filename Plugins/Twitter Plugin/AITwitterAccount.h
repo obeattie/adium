@@ -67,6 +67,16 @@ typedef enum {
 	AITwitterLinkDestroyDM
 } AITwitterLinkType;
 
+// HTML class names
+#define AITwitterInReplyToClassName		@"twitter_inReplyTo"
+#define AITwitterRetweetClassName		@"twitter_reTweet"
+#define AITwitterReplyClassName			@"twitter_reply"
+#define AITwitterDeleteClassName		@"twitter_delete"
+#define AITwitterFavoriteClassName		@"twitter_favorite"
+#define AITwitterStatusLinkClassName	@"twitter_status"
+
+#define AITwitterActionLinksAttributeName	@"AITwitterActionLinks"
+
 #define TWITTER_UPDATE_INTERVAL_MINUTES		10 // Used as the default Preferences
 
 #define TWITTER_UPDATE_TIMELINE_COUNT_FIRST_RUN		50
@@ -97,6 +107,8 @@ typedef enum {
 #define TWITTER_PREFERENCE_REPLIES_LAST_ID		@"Replies Last ID"
 #define TWITTER_PREFERENCE_GROUP_UPDATES		@"Twitter Preferences"
 
+#define AITwitterNotificationPostedStatus		@"AITwitterNotificationPostedStatus"
+
 // Status Updates
 #define TWITTER_STATUS_ID					@"id"
 #define TWITTER_STATUS_REPLY_UID			@"in_reply_to_screen_name"
@@ -120,7 +132,6 @@ typedef enum {
 #define TWITTER_INFO_DISPLAY_NAME			@"name"
 #define TWITTER_INFO_UID					@"screen_name"
 #define TWITTER_INFO_ICON					@"profile_image_url"
-#define TWITTER_INFO_NOTIFICATION			@"notifications"
 
 // Rate Limit
 #define TWITTER_RATE_LIMIT_HOURLY_LIMIT		@"hourly-limit"

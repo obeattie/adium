@@ -19,8 +19,8 @@
 
 VERSION=1.4hg
 BUILD_IN_DEBUG_MODE?=TRUE
-BETA?=FALSE
-OFFICIAL_BUILD?=FALSE
+BETA?=TRUE
+OFFICIAL_BUILD?=TRUE
 
 # Always builds in debug mode.
 NIGHTLY?=FALSE
@@ -57,6 +57,7 @@ TARBALL_DIR=adium-$(VERSION)
 REVISION = r$(shell hg parent --template {rev})
 
 ifeq ($(NIGHTLY),TRUE)
+	BETA=FALSE
 	ADIUM_DIR:=$(ADIUM_DIR)\ $(REVISION)
 	VERSION_ESCAPED:=$(VERSION_ESCAPED)\ $(REVISION)
 	VERSION:=$(VERSION)$(REVISION)
@@ -75,7 +76,7 @@ ifeq ($(BETA),TRUE)
 	BUILDFLAGS+="ADIUM_CFLAGS=-DBETA_RELEASE"
 endif
 
-PRODUCT_DIR=$(shell defaults read com.apple.Xcode PBXProductDirectory 2> /dev/null)
+PRODUCT_DIR=$(shell defaults read com.apple.Xcode PBXApplicationwideBuildSettings 2> /dev/null > XcodeBuildSettings.plist && defaults read $PWD/XcodeBuildSettings SYMROOT 2> /dev/null; rm XcodeBuildSettings.plist)
 
 ifeq ($(strip $(PRODUCT_DIR)),)
 	ADIUM_BUILD_DIR=$(SRC_DIR)/build/$(BUILDSTYLE)
@@ -116,7 +117,7 @@ assertnoconflicts:
 
 version:
 	@# update the plists
-	defaults write $(ADIUM_PLIST) CFBundleGetInfoString "$(VERSION), Copyright 2001-2008 The Adium Team"
+	defaults write $(ADIUM_PLIST) CFBundleGetInfoString "$(VERSION), Copyright 2001-2009 The Adium Team"
 	defaults write $(ADIUM_PLIST) CFBundleVersion "$(VERSION)"
 	defaults write $(ADIUM_PLIST) CFBundleShortVersionString "$(VERSION)"
 	plutil -convert xml1 $(ADIUM_PLIST).plist
@@ -166,7 +167,7 @@ createfolder:
 	mkdir $(ADIUM_DIR)
 	
 	@# copy the app
-	cp -R $(ADIUM_BUILD_DIR)/Adium.app $(ADIUM_DIR)
+	cp -R "$(ADIUM_BUILD_DIR)/Adium.app" $(ADIUM_DIR)
 
 	@# copy the text files
 	cp $(SRC_DIR)/ChangeLogs/Changes.txt $(ADIUM_DIR)

@@ -17,6 +17,7 @@
 #import "AIListController.h"
 #import "AIAnimatingListOutlineView.h"
 #import "AIListWindowController.h"
+#import "AIMessageViewController.h"
 #import <Adium/AIChat.h>
 #import <Adium/AIChatControllerProtocol.h>
 #import <Adium/AIContactControllerProtocol.h>
@@ -28,10 +29,12 @@
 #import <Adium/AIListContact.h>
 #import <Adium/AIListGroup.h>
 #import <Adium/AIListObject.h>
+#import <Adium/AIListBookmark.h>
 #import <Adium/AIContactList.h>
 #import <Adium/AIMetaContact.h>
 #import <Adium/AIListOutlineView.h>
 #import <Adium/AIProxyListObject.h>
+#import <Adium/AITextAttachmentExtension.h>
 #import <AIUtilities/AIAttributedStringAdditions.h>
 #import <AIUtilities/AIAutoScrollView.h>
 #import <AIUtilities/AIPasteboardAdditions.h>
@@ -40,6 +43,7 @@
 #import <AIUtilities/AIObjectAdditions.h>
 #import <AIUtilities/AIFunctions.h>
 #import <AIUtilities/AIEventAdditions.h>
+#import <AIUtilities/AIAttributedStringAdditions.h>
 
 #define EDGE_CATCH_X						40.0f
 #define EDGE_CATCH_Y						40.0f
@@ -711,17 +715,32 @@
 					// if the group isn't containing -this- proxy.
 					if (!([group containsObject:listObject] && proxyObject.containingObject == group)) {
 						if([listObject isKindOfClass:[AIListContact class]]) {
+							NSSet *sourceGroups = nil;
+							
+							if ([NSEvent optionKey]) {
+								sourceGroups = [NSSet set];
+							} else {
+								if ([proxyObject.containingObject isKindOfClass:[AIMetaContact class]]) {
+									// If we're dragging -from- a meta contact, just do an add; the move performs the removal from the meta.
+									sourceGroups = [NSSet set];
+								} else {
+									sourceGroups = [NSSet setWithObject:proxyObject.containingObject];
+								}
+							}
+
 							// Contact being moved to a new group.
 							// Holding option copies into the new group (like in Finder)
 							[adium.contactController moveContact:(AIListContact *)listObject
-													  fromGroups:([NSEvent optionKey] ? [NSSet set] : [NSSet setWithObject:proxyObject.containingObject])
+													  fromGroups:sourceGroups
 													  intoGroups:[NSSet setWithObject:group]];
 
 						} else if ([listObject isKindOfClass:[AIListGroup class]]) {							
 							// Group being moved to a new detached window.
 							NSAssert([group isKindOfClass:[AIContactList class]], @"Target group not an AIContactList");
-							
-							[[(AIListGroup *)listObject contactList] moveGroup:(AIListGroup *)listObject to:(AIContactList *)group];
+
+							[adium.contactController moveGroup:(AIListGroup *)listObject
+											   fromContactList:((AIListGroup *)listObject).contactList 
+												 toContactList:(AIContactList *)group];
 						}
 					}
 					
@@ -765,9 +784,7 @@
 	} else if ((availableType = [[info draggingPasteboard] availableTypeFromArray:[NSArray arrayWithObjects:
 																				   NSFilenamesPboardType, AIiTunesTrackPboardType, nil]])) {
 		//Drag and Drop file transfer for the contact list.
-		AIListContact	*targetFileTransferContact = [adium.contactController preferredContactForContentType:CONTENT_FILE_TRANSFER_TYPE
-																							  forListContact:(AIListContact *)(item.listObject)];
-		if (targetFileTransferContact) {
+		if ([item isKindOfClass:[AIListContact class]]) {
 			NSArray			*files = nil;
 			NSString		*file;
 			
@@ -777,22 +794,31 @@
 			} else if ([availableType isEqualToString:AIiTunesTrackPboardType]) {
 				files = [[info draggingPasteboard] filesFromITunesDragPasteboard];
 			}
-			
-			NSString *title = [NSString stringWithFormat:AILocalizedString(@"Send File to %@", "Window title to the file transfer confirmation window"), targetFileTransferContact.displayName];
 
-			NSString *question = [NSString stringWithFormat:AILocalizedString(@"Are you sure you want to send %@ to %@?", "Question asked in the file transfer confirmation window"),
-								  (files.count == 1 ? [[files objectAtIndex:0] lastPathComponent] : [NSString stringWithFormat:AILocalizedString(@"%d files", nil), files.count]),
-								  targetFileTransferContact.displayName];
+			NSMutableAttributedString *mutableString = [[[NSMutableAttributedString alloc] initWithString:@""] autorelease];
 			
-			if (NSRunAlertPanel(title,
-								question,
-								AILocalizedString(@"Send File", nil),
-								AILocalizedString(@"Cancel", nil),
-								nil) == NSAlertDefaultReturn) {
-				for (file in files) {
-					[adium.fileTransferController sendFile:file toListContact:targetFileTransferContact];
-				}
+			for (file in files) {
+				AITextAttachmentExtension   *attachment = [[AITextAttachmentExtension alloc] init];
+				[attachment setPath:file];
+				[attachment setString:[file lastPathComponent]];
+				
+				NSTextAttachmentCell		*cell = [[NSTextAttachmentCell alloc] initImageCell:[attachment iconImage]];
+				[attachment setHasAlternate:NO];
+				[attachment setAttachmentCell:cell];
+				[cell release];
+				
+				[mutableString appendAttributedString:[NSAttributedString attributedStringWithAttachment:attachment]];
+				[attachment release];
 			}
+		
+			AIChat *chat = [adium.chatController openChatWithContact:(AIListContact *)(item.listObject)
+												  onPreferredAccount:YES];
+			
+			[chat.chatContainer.messageViewController addToTextEntryView:mutableString];
+			
+			[adium.interfaceController setActiveChat:chat];
+			[NSApp activateIgnoringOtherApps:YES];
+			[NSApp arrangeInFront:nil];
 
 		} else {
 			AILogWithSignature(@"No contact available to receive files");
@@ -804,8 +830,6 @@
 		//Drag and drop text sending via the contact list.
 		if ([item isKindOfClass:[AIListContact class]]) {
 			/* This will send the message. Alternately, we could just insert it into the text view... */
-			AIChat							*chat;
-			AIContentMessage				*messageContent;
 			NSAttributedString				*messageAttributedString = nil;
 			
 			if ([availableType isEqualToString:NSRTFPboardType]) {
@@ -822,27 +846,14 @@
 			}
 			
 			if(messageAttributedString && [messageAttributedString length] !=0) {
-				NSString *title = [NSString stringWithFormat:AILocalizedString(@"Send Text to %@", "Window title to the text send confirmation window"), ((AIListObject *)item).displayName];
+				AIChat *chat = [adium.chatController openChatWithContact:(AIListContact *)(item.listObject)
+													  onPreferredAccount:YES];
 				
-				NSString *question = [NSString stringWithFormat:AILocalizedString(@"Are you sure you want to send the text to %@?", "Question asked in the file transfer confirmation window"),
-									  ((AIListObject *)item).displayName];
+				[chat.chatContainer.messageViewController addToTextEntryView:messageAttributedString];
 				
-				if (NSRunAlertPanel(title,
-									question,
-									AILocalizedString(@"Send Text", nil),
-									AILocalizedString(@"Cancel", nil),
-									nil) == NSAlertDefaultReturn) {
-					chat = [adium.chatController openChatWithContact:(AIListContact *)(item.listObject)
-													onPreferredAccount:YES];
-					messageContent = [AIContentMessage messageInChat:chat
-														  withSource:chat.account
-														 destination:chat.listObject
-																date:nil
-															 message:messageAttributedString
-														   autoreply:NO];
-				
-					[adium.contentController sendContentObject:messageContent];
-				}
+				[adium.interfaceController setActiveChat:chat];
+				[NSApp activateIgnoringOtherApps:YES];
+				[NSApp arrangeInFront:nil];
 			}
 			else {
 				success = NO;
@@ -860,6 +871,19 @@
 
 - (void)promptToCombineItems:(NSArray *)items withContact:(AIListContact *)inContact
 {
+	for (AIListContact *listContact in [items arrayByAddingObject:inContact]) {
+		// Make sure all of the items can join the contact.
+		if (!listContact.canJoinMetaContacts) {
+			NSRunAlertPanel(AILocalizedString(@"Unable to Combine", nil),
+							AILocalizedString(@"%@ is not able to be combined into a meta contact.", nil),
+							AILocalizedStringFromTable(@"OK", @"Buttons", "Verb 'OK' on a button"),
+							nil,
+							nil,
+							listContact.displayName);
+			return;
+		}
+	}
+	
 	NSString	*promptTitle;
 	
 	//Appropriate prompt

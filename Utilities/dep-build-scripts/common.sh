@@ -12,6 +12,7 @@ GLIB=glib-2.16.6
 MEANWHILE=meanwhile-1.0.2
 GADU=libgadu-1.7.1
 INTLTOOL=intltool-0.36.2
+JSONLIB=json-glib-0.6.2
 GPG_ERROR=libgpg-error-1.6
 GCRYPT=libgcrypt-1.4.1
 LIBXML2=libxml2-2.7.3
@@ -81,7 +82,7 @@ function downloadSources {
 	mkdir "$SOURCEDIR" > /dev/null 2>&1 || true
 	
 	pushd "$SOURCEDIR"
-		python "$BASEDIR/download.py" -f "$BASEDIR/urls.txt"
+		python "$SCRIPT_DIR/download.py" -f "$SCRIPT_DIR/urls.txt"
 	popd
 }
 

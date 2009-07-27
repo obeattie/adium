@@ -22,6 +22,9 @@
         [current release];
         current = [[PTKeyCodeTranslator alloc] initWithKeyboardLayout:currentLayout];
     }
+	
+	CFRelease(currentLayout);
+	
     return current;
 }
 
@@ -29,11 +32,21 @@
 {
     if ((self = [super init]) != nil) {
         keyboardLayout = aLayout;
+		
+		CFRetain(keyboardLayout);
+		
         CFDataRef uchr = TISGetInputSourceProperty( keyboardLayout , kTISPropertyUnicodeKeyLayoutData );
         uchrData = ( const UCKeyboardLayout* )CFDataGetBytePtr(uchr);
     }
     
     return self;
+}
+
+- (void)dealloc
+{
+	CFRelease(keyboardLayout);
+
+	[super dealloc];
 }
 
 - (NSString *)translateKeyCode:(short)keyCode {

@@ -22,7 +22,8 @@ static NSMutableDictionary *proxyDict;
 
 + (void)initialize
 {
-	proxyDict = [[NSMutableDictionary alloc] init];
+	if (self == [AIProxyListObject class])
+		proxyDict = [[NSMutableDictionary alloc] init];
 }
 
 + (AIProxyListObject *)proxyListObjectForListObject:(ESObjectWithProperties *)inListObject
@@ -38,6 +39,9 @@ static NSMutableDictionary *proxyDict;
 	if (proxy && proxy.listObject != inListObject) {
 		// If the old list object is for some reason invalid (released in contact controller, but not fully released)
 		// we end up with an old list object as our proxied object. Correct this by getting rid of the old one.
+#ifdef DEBUG_BUILD
+		NSLog(@"Attempting to correct for old proxy listobject, keyed %@", key);
+#endif
 		[proxy.listObject removeProxyObject:proxy];
 		[self releaseProxyObject:proxy];
 		proxy = nil;
@@ -104,7 +108,6 @@ static NSMutableDictionary *proxyDict;
 
 - (id)forwardingTargetForSelector:(SEL)aSelector;
 {
-	NSLog(@"XXX forwarding %@; break on -[AIProxyListObject forwardingTargetForSelector:]", NSStringFromSelector(aSelector));
 	return listObject;
 }
 

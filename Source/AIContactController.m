@@ -89,6 +89,11 @@
 - (BOOL)addObject:(AIListObject *)inObject;
 @end
 
+@interface AIListBookmark ()
+//Freshly minted bookmarks don't know where to restore to, since they have no serverside counterpart. This tells them.
+- (void)setInitialGroup:(AIListGroup *)inGroup;
+@end
+
 @interface AIContactController ()
 @property (readwrite, nonatomic) BOOL useOfflineGroup;
 - (void)saveContactList;
@@ -1224,7 +1229,7 @@ NSInteger contactDisplayNameSort(AIListObject *objectA, AIListObject *objectB, v
 /*!
  * @brief Find or create a bookmark for a chat
  */
-- (AIListBookmark *)bookmarkForChat:(AIChat *)inChat
+- (AIListBookmark *)bookmarkForChat:(AIChat *)inChat inGroup:(AIListGroup *)group
 {
 	AIListBookmark *bookmark = [self existingBookmarkForChat:inChat];
 	
@@ -1238,8 +1243,12 @@ NSInteger contactDisplayNameSort(AIListObject *objectA, AIListObject *objectB, v
 		
 		[bookmarkDict setObject:bookmark forKey:bookmark.internalObjectID];
 		
+		[bookmark setInitialGroup:group];
+		
 		[self saveContactList];
 	}
+	
+	[bookmark restoreGrouping];
 	
 	//Do the update thing
 	[contactPropertiesObserverManager _updateAllAttributesOfObject:bookmark];
@@ -1392,7 +1401,8 @@ NSInteger contactDisplayNameSort(AIListObject *objectA, AIListObject *objectB, v
 		group = [[AIListGroup alloc] initWithUID:groupUID];
 		
 		//Add
-		[contactPropertiesObserverManager _updateAllAttributesOfObject:group];
+		//Update afterwards, in case it's being called inside updateListObject already.
+		[contactPropertiesObserverManager performSelector:@selector(_updateAllAttributesOfObject:) withObject:group afterDelay:0.0];
 		[groupDict setObject:group forKey:[groupUID lowercaseString]];
 		
 		//Add to the contact list
@@ -1475,6 +1485,29 @@ NSInteger contactDisplayNameSort(AIListObject *objectA, AIListObject *objectB, v
 }
 
 #pragma mark Detached Contact Lists
+- (void)moveGroup:(AIListGroup *)group fromContactList:(AIContactList *)oldContactList toContactList:(AIContactList *)newContactList
+{
+	if (![oldContactList containsObject:group] || [newContactList containsObject:group]) {
+		return;
+	}
+	
+	[oldContactList removeObject:group];
+	[newContactList addObject:group];
+
+	[[NSNotificationCenter defaultCenter] postNotificationName:Contact_ListChanged
+														object:newContactList
+													  userInfo:nil];
+	
+	if (!oldContactList.containedObjects.count) {
+		[[NSNotificationCenter defaultCenter] postNotificationName:DetachedContactListIsEmpty
+															object:oldContactList
+														  userInfo:nil];
+	} else {
+		[[NSNotificationCenter defaultCenter] postNotificationName:Contact_ListChanged
+															object:oldContactList
+														  userInfo:nil];
+	}
+}
 
 /*!
  * @returns Empty contact list

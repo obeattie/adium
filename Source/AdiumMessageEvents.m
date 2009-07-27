@@ -24,6 +24,10 @@
 #import <AIUtilities/AIImageAdditions.h>
 #import <Adium/AIListGroup.h>
 
+@interface AdiumMessageEvents()
+- (NSString *)stringFromMessageAttributedString:(NSAttributedString *)attributedString;
+@end
+
 @implementation AdiumMessageEvents
 
 - (id)init
@@ -303,8 +307,8 @@
 	NSParameterAssert([userInfo isKindOfClass:[NSDictionary class]]);
 	
 	contentObject = [(NSDictionary *)userInfo objectForKey:@"AIContentObject"];
-	messageText = [[[contentObject message] attributedStringByConvertingAttachmentsToStrings] string];
-	
+	messageText = [self stringFromMessageAttributedString:contentObject.message];
+
 	if (includeSubject) {
 		
 		if ([eventID isEqualToString:CONTENT_MESSAGE_SENT]) {
@@ -365,12 +369,61 @@
 	return description;
 }
 
+/*!
+ * @brief Return a string fit for display.
+ *
+ * @param attributedString A message's attributed string.
+ * @return A string with any elements not fit for display in reference to the event removed.
+ */
+- (NSString *)stringFromMessageAttributedString:(NSAttributedString *)attributedString
+{
+	NSMutableAttributedString *mutableMessage = [[[attributedString attributedStringByConvertingAttachmentsToStrings] mutableCopy] autorelease];
+
+	NSRange messageRange = NSMakeRange(0, 0);
+	NSUInteger stringLength = attributedString.length;
+	
+	for (NSUInteger i = 0; i < stringLength; i+= messageRange.length) {
+		if ([mutableMessage attribute:AIHiddenMessagePartAttributeName
+							  atIndex:i
+				longestEffectiveRange:&messageRange
+							  inRange:NSMakeRange(i, stringLength - i)]) {
+			[mutableMessage deleteCharactersInRange:messageRange];
+			stringLength -= messageRange.length;
+			messageRange.length = 0;
+		}
+	}
+	
+	return [mutableMessage string];
+}
+
 - (NSImage *)imageForEventID:(NSString *)eventID
 {
 	static NSImage	*eventImage = nil;
 	//Use the message icon from the main bundle
 	if (!eventImage) eventImage = [[NSImage imageNamed:@"message"] retain];
 	return eventImage;
+}
+
+- (NSString *)descriptionForCombinedEventID:(NSString *)eventID
+							  forListObject:(AIListObject *)listObject
+									forChat:(AIChat *)chat
+								  withCount:(NSUInteger)count
+{
+	NSString *format = nil;
+	
+	if ([eventID isEqualToString:CONTENT_MESSAGE_SENT]) {
+		format = AILocalizedString(@"%u messages sent",nil);
+	} else if ([eventID isEqualToString:CONTENT_MESSAGE_RECEIVED] || 
+			   [eventID isEqualToString:CONTENT_MESSAGE_RECEIVED_FIRST] ||
+			   [eventID isEqualToString:CONTENT_MESSAGE_RECEIVED_BACKGROUND] ||
+			   [eventID isEqualToString:CONTENT_MESSAGE_RECEIVED_GROUP] ||
+			   [eventID isEqualToString:CONTENT_MESSAGE_RECEIVED_BACKGROUND_GROUP]) {
+		format = AILocalizedString(@"%u messages received", nil);
+	} else if ([eventID isEqualToString:CONTENT_GROUP_CHAT_MENTION]) {
+		format = AILocalizedString(@"%u mentions received", nil);
+	}
+	
+	return format ? [NSString stringWithFormat:format, count] : @"";
 }
 
 @end

@@ -357,11 +357,11 @@ onlyIncludeOutgoingImages:(BOOL)onlyIncludeOutgoingImages
 			}
 			
 			if (color != currentColor) {
-				[currentColor release]; currentColor = [color retain];
+				currentColor = color;
 			}
 			
 			if (backColor != currentBackColor) {
-				[currentBackColor release]; currentBackColor = [backColor retain];
+				currentBackColor = backColor;
 			}
 
 			//Close the font tag if necessary
@@ -437,6 +437,14 @@ onlyIncludeOutgoingImages:(BOOL)onlyIncludeOutgoingImages
 					[string appendString:@"\" title=\""];
 					[string appendString:linkString];
 				}
+				
+				NSString *classString = [attributes objectForKey:AIElementClassAttributeName];
+				
+				if (!thingsToInclude.simpleTagsOnly && classString) {
+					[string appendString:@"\" class=\""];
+					[string appendString:classString];
+				}
+				
 				[string appendString:@"\">"];
 				
 				oldLink = linkString;
@@ -649,7 +657,6 @@ onlyIncludeOutgoingImages:(BOOL)onlyIncludeOutgoingImages
 	}
 
 	[currentFamily release];
-	[currentColor release];
 
 	//Finish off the HTML
 	if (thingsToInclude.styleTags) {
@@ -1822,17 +1829,13 @@ onlyIncludeOutgoingImages:(BOOL)onlyIncludeOutgoingImages
 											  src)];
 			}
 			
-			if (url && ![url isFileURL]) {
-				NSData *data = [NSData dataWithContentsOfURL:url];
-				//Arbitrary image extension; it just needs to have one.
-				src = [[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString randomStringOfLength:8]] stringByAppendingPathExtension:@"png"];
-				[data writeToFile:src
-					   atomically:YES];
-			} else {
+			if (url && [url isFileURL]) {
 				src = [url path];
 				
 				if (inBaseURL && ![[NSFileManager defaultManager] fileExistsAtPath:src])
 					src = [inBaseURL stringByAppendingPathComponent:src];
+			} else {
+				return [NSAttributedString attributedStringWithLinkLabel:src linkDestination:src];
 			}
 
 			[attachment setPath:src];

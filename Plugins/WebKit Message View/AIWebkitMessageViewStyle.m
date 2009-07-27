@@ -55,8 +55,6 @@
 // We set back, when the user finishes editing, the correct topic, which wipes out the existance of the span before. We don't need to undo the dbl click action.
 #define TOPIC_INDIVIDUAL_WRAPPER		@"<span id=\"topicEdit\" ondblclick=\"this.setAttribute('contentEditable', true); this.focus();\">%@</span>"
 
-#define VALID_SENDER_COLORS_ARRAY [[NSArray alloc] initWithObjects:@"aqua", @"aquamarine", @"blue", @"blueviolet", @"brown", @"burlywood", @"cadetblue", @"chartreuse", @"chocolate", @"coral", @"cornflowerblue", @"crimson", @"cyan", @"darkblue", @"darkcyan", @"darkgoldenrod", @"darkgreen", @"darkgrey", @"darkkhaki", @"darkmagenta", @"darkolivegreen", @"darkorange", @"darkorchid", @"darkred", @"darksalmon", @"darkseagreen", @"darkslateblue", @"darkslategrey", @"darkturquoise", @"darkviolet", @"deeppink", @"deepskyblue", @"dimgrey", @"dodgerblue", @"firebrick", @"forestgreen", @"fuchsia", @"gold", @"goldenrod", @"green", @"greenyellow", @"grey", @"hotpink", @"indianred", @"indigo", @"lawngreen", @"lightblue", @"lightcoral", @"lightgreen", @"lightgrey", @"lightpink", @"lightsalmon", @"lightseagreen", @"lightskyblue", @"lightslategrey", @"lightsteelblue", @"lime", @"limegreen", @"magenta", @"maroon", @"mediumaquamarine", @"mediumblue", @"mediumorchid", @"mediumpurple", @"mediumseagreen", @"mediumslateblue", @"mediumspringgreen", @"mediumturquoise", @"mediumvioletred", @"midnightblue", @"navy", @"olive", @"olivedrab", @"orange", @"orangered", @"orchid", @"palegreen", @"paleturquoise", @"palevioletred", @"peru", @"pink", @"plum", @"powderblue", @"purple", @"red", @"rosybrown", @"royalblue", @"saddlebrown", @"salmon", @"sandybrown", @"seagreen", @"sienna", @"silver", @"skyblue", @"slateblue", @"slategrey", @"springgreen", @"steelblue", @"tan", @"teal", @"thistle", @"tomato", @"turquoise", @"violet", @"yellowgreen", nil]
-
 static NSArray *validSenderColors;
 
 @interface NSMutableString (AIKeywordReplacementAdditions)
@@ -113,6 +111,7 @@ static NSArray *validSenderColors;
 @interface AIWebkitMessageViewStyle ()
 - (id)initWithBundle:(NSBundle *)inBundle;
 - (void)_loadTemplates;
+- (void)releaseResources;
 - (NSMutableString *)_escapeStringForPassingToScript:(NSMutableString *)inString;
 - (NSString *)noVariantName;
 - (NSString *)iconPathForFileTransfer:(ESFileTransfer *)inObject;
@@ -142,59 +141,62 @@ static NSArray *validSenderColors;
 	if ((self = [super init])) {
 		styleBundle = [inBundle retain];
 		stylePath = [[styleBundle resourcePath] retain];
-
-		//Default behavior
-		allowTextBackgrounds = YES;
-
-		/* Our styles are versioned so we can change how they work without breaking compatibility.
-		 *
-		 * Version 0: Initial Webkit Version
-		 * Version 1: Template.html now handles all scroll-to-bottom functionality.  It is no longer required to call the
-		 *            scrollToBottom functions when inserting content.
-		 * Version 2: No significant changes
-		 * Version 3: main.css is no longer a separate style, it now serves as the base stylesheet and is imported by default.
-		 *            The default variant is now a separate file in /variants like all other variants.
-		 *			  Template.html now includes appendMessageNoScroll() and appendNextMessageNoScroll() which behave
-		 *				the same as appendMessage() and appendNextMessage() in Versions 1 and 2 but without scrolling.
-		 * Version 4: Template.html now includes replaceLastMessage()
-		 *            Template.html now defines actionMessageUserName and actionMessageBody for display of /me (actions).
-		 *				 If the style provides a custom Template.html, these classes must be defined.
-		 *				 CSS can be used to customize the appearance of actions.
-		 *			  HTML filters in are now supported in Adium's content filter system; filters can assume Version 4 or later.
-		 */
-		styleVersion = [[styleBundle objectForInfoDictionaryKey:KEY_WEBKIT_VERSION] integerValue];
-
-		//Pre-fetch our templates
-		[self _loadTemplates];
-
-		//Style flags
-		allowsCustomBackground = ![[styleBundle objectForInfoDictionaryKey:@"DisableCustomBackground"] boolValue];
-		transparentDefaultBackground = [[styleBundle objectForInfoDictionaryKey:@"DefaultBackgroundIsTransparent"] boolValue];
-
-		combineConsecutive = ![[styleBundle objectForInfoDictionaryKey:@"DisableCombineConsecutive"] boolValue];
-
-		NSNumber *tmpNum = [styleBundle objectForInfoDictionaryKey:@"ShowsUserIcons"];
-		allowsUserIcons = (tmpNum ? [tmpNum boolValue] : YES);
-		
-		//User icon masking
-		NSString *tmpName = [styleBundle objectForInfoDictionaryKey:KEY_WEBKIT_USER_ICON_MASK];
-		if (tmpName) userIconMask = [[NSImage alloc] initWithContentsOfFile:[stylePath stringByAppendingPathComponent:tmpName]];
-		
-		NSNumber *allowsColorsNumber = [styleBundle objectForInfoDictionaryKey:@"AllowTextColors"];
-		allowsColors = (allowsColorsNumber ? [allowsColorsNumber boolValue] : YES);
+		[self reloadStyle];
 	}
 
 	return self;
 }
 
-/*!
- *	@brief Deallocate
- */
-- (void)dealloc
-{	
-	[styleBundle release];
-	[stylePath release];
+- (void) reloadStyle
+{
+	[self releaseResources];
+	
+	//Default behavior
+	allowTextBackgrounds = YES;
+	
+	/* Our styles are versioned so we can change how they work without breaking compatibility.
+	 *
+	 * Version 0: Initial Webkit Version
+	 * Version 1: Template.html now handles all scroll-to-bottom functionality.  It is no longer required to call the
+	 *            scrollToBottom functions when inserting content.
+	 * Version 2: No significant changes
+	 * Version 3: main.css is no longer a separate style, it now serves as the base stylesheet and is imported by default.
+	 *            The default variant is now a separate file in /variants like all other variants.
+	 *			  Template.html now includes appendMessageNoScroll() and appendNextMessageNoScroll() which behave
+	 *				the same as appendMessage() and appendNextMessage() in Versions 1 and 2 but without scrolling.
+	 * Version 4: Template.html now includes replaceLastMessage()
+	 *            Template.html now defines actionMessageUserName and actionMessageBody for display of /me (actions).
+	 *				 If the style provides a custom Template.html, these classes must be defined.
+	 *				 CSS can be used to customize the appearance of actions.
+	 *			  HTML filters in are now supported in Adium's content filter system; filters can assume Version 4 or later.
+	 */
+	styleVersion = [[styleBundle objectForInfoDictionaryKey:KEY_WEBKIT_VERSION] integerValue];
+	
+	//Pre-fetch our templates
+	[self _loadTemplates];
+	
+	//Style flags
+	allowsCustomBackground = ![[styleBundle objectForInfoDictionaryKey:@"DisableCustomBackground"] boolValue];
+	transparentDefaultBackground = [[styleBundle objectForInfoDictionaryKey:@"DefaultBackgroundIsTransparent"] boolValue];
+	
+	combineConsecutive = ![[styleBundle objectForInfoDictionaryKey:@"DisableCombineConsecutive"] boolValue];
+	
+	NSNumber *tmpNum = [styleBundle objectForInfoDictionaryKey:@"ShowsUserIcons"];
+	allowsUserIcons = (tmpNum ? [tmpNum boolValue] : YES);
+	
+	//User icon masking
+	NSString *tmpName = [styleBundle objectForInfoDictionaryKey:KEY_WEBKIT_USER_ICON_MASK];
+	if (tmpName) userIconMask = [[NSImage alloc] initWithContentsOfFile:[stylePath stringByAppendingPathComponent:tmpName]];
+	
+	NSNumber *allowsColorsNumber = [styleBundle objectForInfoDictionaryKey:@"AllowTextColors"];
+	allowsColors = (allowsColorsNumber ? [allowsColorsNumber boolValue] : YES);
+}
 
+/*!
+ *  @brief release everything we loaded from the style bundle
+ */
+- (void)releaseResources
+{
 	//Templates
 	[headerHTML release];
 	[footerHTML release];
@@ -211,24 +213,30 @@ static NSArray *validSenderColors;
 	[statusHTML release];	
 	[fileTransferHTML release];
 	[topicHTML release];
-
-	[timeStampFormatter release];
-
+		
 	[customBackgroundPath release];
 	[customBackgroundColor release];
 	
 	[userIconMask release];
+}
+
+/*!
+ *	@brief Deallocate
+ */
+- (void)dealloc
+{	
+	[styleBundle release];
+	[stylePath release];
+
+	[self releaseResources];
+	[timeStampFormatter release];
 	
 	[statusIconPathCache release];
 	
 	[super dealloc];
 }
 
-- (NSBundle *)bundle
-{
-	return styleBundle;
-}
-
+@synthesize bundle = styleBundle;
 
 - (BOOL)isLegacy
 {
@@ -236,10 +244,8 @@ static NSArray *validSenderColors;
 }
 
 #pragma mark Settings
-- (BOOL)allowsCustomBackground
-{
-	return allowsCustomBackground;
-}
+
+@synthesize allowsCustomBackground, allowsUserIcons, allowsColors, userIconMask;
 
 - (BOOL)isBackgroundTransparent
 {
@@ -248,15 +254,6 @@ static NSArray *validSenderColors;
 		   (customBackgroundColor && [customBackgroundColor alphaComponent] < 0.99));
 }
 
-- (BOOL)allowsUserIcons
-{
-	return allowsUserIcons;
-}
-
-- (BOOL)allowsColors;
-{
-	return allowsColors;
-}
 - (NSString *)defaultFontFamily
 {
 	NSString *defaultFontFamily = [styleBundle objectForInfoDictionaryKey:KEY_WEBKIT_DEFAULT_FONT_FAMILY];
@@ -284,11 +281,6 @@ static NSArray *validSenderColors;
 	return topicHTML && [topicHTML length];
 }
 
-- (NSImage *)userIconMask
-{
-	return userIconMask;
-}
-
 #pragma mark Behavior
 
 - (void)setDateFormat:(NSString *)format
@@ -309,62 +301,7 @@ static NSArray *validSenderColors;
 	}
 }
 
-- (void)setShowUserIcons:(BOOL)inValue
-{
-	showUserIcons = inValue;
-}
-
-- (void)setShowHeader:(BOOL)inValue
-{
-	showHeader = inValue;
-}
-
-- (void)setUseCustomNameFormat:(BOOL)inValue
-{
-	useCustomNameFormat = inValue;
-}
-
-- (void)setNameFormat:(AINameFormat)inValue
-{
-	nameFormat = inValue;
-}
-
-- (void)setAllowTextBackgrounds:(BOOL)inValue
-{
-	allowTextBackgrounds = inValue;
-}
-
-- (void)setCustomBackgroundPath:(NSString *)inPath
-{
-	if (customBackgroundPath != inPath) {
-		[customBackgroundPath release];
-		customBackgroundPath = [inPath retain];
-	}
-}
-
-- (void)setCustomBackgroundType:(AIWebkitBackgroundType)inType
-{
-	customBackgroundType = inType;
-}
-
-- (void)setCustomBackgroundColor:(NSColor *)inColor
-{
-	if (customBackgroundColor != inColor) {
-		[customBackgroundColor release];
-		customBackgroundColor = [inColor retain];
-	}
-}
-
-- (void)setShowIncomingMessageColors:(BOOL)inValue
-{
-	showIncomingColors = inValue;
-}
-
-- (void)setShowIncomingMessageFonts:(BOOL)inValue
-{
-	showIncomingFonts = inValue;
-}
-
+@synthesize allowTextBackgrounds, customBackgroundType, customBackgroundColor, showIncomingMessageColors=showIncomingColors, showIncomingMessageFonts=showIncomingFonts, customBackgroundPath, nameFormat, useCustomNameFormat, showHeader, showUserIcons;
 
 //Templates ------------------------------------------------------------------------------------------------------------
 #pragma mark Templates
@@ -560,6 +497,9 @@ static NSArray *validSenderColors;
 	contextOutHTML = [[NSString stringWithContentsOfUTF8File:[styleBundle semiCaseInsensitivePathForResource:@"Context" ofType:@"html" inDirectory:@"Outgoing"]] retain];
 	nextContextOutHTML = [[NSString stringWithContentsOfUTF8File:[styleBundle semiCaseInsensitivePathForResource:@"NextContext" ofType:@"html" inDirectory:@"Outgoing"]] retain];
 	
+	//Fall back to Resources/Content.html if Incoming isn't present
+	if (!contentInHTML) contentInHTML = [contentHTML retain];
+	
 	//Fall back to Content if NextContent doesn't need to use different HTML
 	if (!nextContentInHTML) nextContentInHTML = [contentInHTML retain];
 	
@@ -578,9 +518,6 @@ static NSArray *validSenderColors;
 	//Fall back to Incoming if Outgoing doesn't need to be different
 	if (!contentOutHTML) contentOutHTML = [contentInHTML retain];
 	if (!nextContentOutHTML) nextContentOutHTML = [nextContentInHTML retain];
-	
-	//Fall back to Resources/Content.html if Incoming isn't present
-	if (!contentInHTML) contentInHTML = [contentHTML retain];
 	
 	//Status
 	statusHTML = [[NSString stringWithContentsOfUTF8File:[styleBundle semiCaseInsensitivePathForResource:@"Status" ofType:@"html"]] retain];
@@ -614,7 +551,7 @@ static NSArray *validSenderColors;
 	newHTML = [[[self completedTemplateForContent:content similar:contentIsSimilar] mutableCopy] autorelease];
 	
 	//BOM scripts vary by style version
-	if (!usingCustomTemplateHTML || styleVersion >= 4) {
+	if (!usingCustomTemplateHTML && styleVersion >= 4) {
 		/* If we're using the built-in template HTML, we know that it supports our most modern scripts */
 		if (replaceLastContent)
 			script = REPLACE_LAST_MESSAGE;
@@ -797,8 +734,12 @@ static NSArray *validSenderColors;
 	[inString replaceKeyword:@"%time%" 
 				  withString:(date ? [timeStampFormatter stringFromDate:date] : @"")];
 
+	NSString *shortTimeString = (date ? [[NSDateFormatter localizedDateFormatterShowingSeconds:NO showingAMorPM:NO] stringFromDate:date] : @"");
+#warning working around http://trac.adium.im/ticket/11981
+	if ([shortTimeString hasSuffix:@" "])
+		shortTimeString = [shortTimeString substringToIndex:shortTimeString.length - 1];
 	[inString replaceKeyword:@"%shortTime%"
-				  withString:(date ? [[NSDateFormatter localizedDateFormatterShowingSeconds:NO showingAMorPM:NO] stringFromDate:date] : @"")];
+				  withString:shortTimeString];
 
 	if ([inString rangeOfString:@"%senderStatusIcon%"].location != NSNotFound) {
 		//Only cache the status icon to disk if the message style will actually use it
@@ -845,11 +786,9 @@ static NSArray *validSenderColors;
 		
 		if(senderColorsFile)
 			validSenderColors = [[senderColorsFile componentsSeparatedByString:@":"] retain];
-		if(!validSenderColors || [validSenderColors count] == 0)
-			validSenderColors = VALID_SENDER_COLORS_ARRAY;
 	}
 	[inString replaceKeyword:@"%senderColor%"
-				  withString:[validSenderColors objectAtIndex:([contentSource.UID hash] % ([validSenderColors count]))]];
+				  withString:[NSColor representedColorForObject:contentSource.UID withValidColors:validSenderColors]];
 	
 	//HAX. The odd conditional here detects the rtl html that our html parser spits out.
 	[inString replaceKeyword:@"%messageDirection%"
@@ -1105,7 +1044,10 @@ static NSArray *validSenderColors;
 		range = [inString rangeOfString:@"%message%"];
 		while(range.location != NSNotFound) {
 			[inString safeReplaceCharactersInRange:range withString:htmlEncodedMessage];
-			range = [inString rangeOfString:@"%message%" options:NSLiteralSearch range:NSMakeRange(NSMaxRange(range), inString.length - NSMaxRange(range))];
+			range = [inString rangeOfString:@"%message%"
+									options:NSLiteralSearch
+									  range:NSMakeRange(range.location + htmlEncodedMessage.length,
+														inString.length - range.location - htmlEncodedMessage.length)];
 		} 
 		
 		// Topic replacement (if applicable)

@@ -288,7 +288,13 @@
 			[menuItem setImage:[self imageForListObject:listObject usingUserIcon:shouldUseUserIcon]];
 		}
 		
-		[menuItem setTitle:(shouldUseDisplayName ? listObject.displayName : listObject.formattedUID)];
+		NSString *displayName = listObject.displayName;
+		
+		if (!shouldUseDisplayName && listObject.formattedUID) {
+			displayName = listObject.formattedUID;
+		}
+		
+		[menuItem setTitle:displayName];
 		[menuItem setToolTip:(shouldSetTooltip ? [listObject.statusMessage string] : nil)];
 
 		[[menuItem menu] setMenuChangedMessagesEnabled:YES];

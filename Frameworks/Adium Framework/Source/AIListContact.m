@@ -202,7 +202,7 @@
 		
 		if (!adium.contactController.useContactListGroups)
 			localGroup = adium.contactController.contactList;
-		else if (adium.contactController.useOfflineGroup && !self.online)
+		else if (adium.contactController.useOfflineGroup && !self.online && !self.alwaysVisible)
 			localGroup = adium.contactController.offlineGroup;
 		
 		[groups addObject:localGroup];
@@ -595,7 +595,7 @@
 	NSNumber *prefNumber = [self.parentContact preferenceForKey:KEY_ENCRYPTED_CHAT_PREFERENCE group:GROUP_ENCRYPTION];
 	
 	//If that turned up nothing, check all the groups it's in
-	if (!prefNumber) {
+	if (!prefNumber || [prefNumber integerValue] == EncryptedChat_Default) {
 		for (AIListGroup *group in self.parentContact.groups)
 		{
 			if ((prefNumber = [group preferenceForKey:KEY_ENCRYPTED_CHAT_PREFERENCE group:GROUP_ENCRYPTION]))
@@ -617,6 +617,22 @@
 		pref = [prefNumber integerValue];
 	
 	return pref;
+}
+
+- (void)setAlwaysVisible:(BOOL)inVisible
+{
+	[super setAlwaysVisible:inVisible];
+	
+	[self restoreGrouping];
+}
+
+- (BOOL)alwaysVisible
+{
+	if (self.metaContact) {
+		return self.metaContact.alwaysVisible;
+	}
+	
+	return [super alwaysVisible];
 }
 
 #pragma mark Status
@@ -708,8 +724,14 @@
 - (void)removeFromGroup:(AIListObject <AIContainingObject> *)group
 {
 	if (self.account.online) {
-		[self.account removeContacts:[NSArray arrayWithObject:self]
-						  fromGroups:[NSArray arrayWithObject:group]];
+		if (group == adium.contactController.contactList
+			|| group == adium.contactController.offlineGroup) {
+			[self.account removeContacts:[NSArray arrayWithObject:self]
+							  fromGroups:[self.remoteGroups allObjects]];	
+		} else {			
+			[self.account removeContacts:[NSArray arrayWithObject:self]
+							  fromGroups:[NSArray arrayWithObject:group]];	
+		}
 	}
 }
 

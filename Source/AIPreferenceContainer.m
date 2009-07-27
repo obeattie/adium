@@ -16,7 +16,6 @@
 
 @interface AIPreferenceContainer ()
 - (id)initForGroup:(NSString *)inGroup object:(AIListObject *)inObject;
-- (void)emptyCache:(NSTimer *)inTimer;
 - (void)save;
 @property (readonly, nonatomic) NSMutableDictionary *prefs;
 - (void) loadGlobalPrefs;
@@ -25,7 +24,6 @@
 - (void) setPrefValue:(id)val forKey:(id)key;
 @end
 
-#define EMPTY_CACHE_DELAY		120.0
 #define	SAVE_OBJECT_PREFS_DELAY	10.0
 
 /* XXX Remove me */
@@ -34,19 +32,16 @@
 #endif
 
 static NSMutableDictionary	*objectPrefs = nil;
-static NSInteger					usersOfObjectPrefs = 0;
 static NSTimer				*timer_savingOfObjectCache = nil;
 
 static NSMutableDictionary	*accountPrefs = nil;
-static NSInteger					usersOfAccountPrefs = 0;
 static NSTimer				*timer_savingOfAccountCache = nil;
 	
 /*!
  * @brief Preference Container
  *
  * A single AIPreferenceContainer instance provides read/write access preferences to a specific preference group, either
- * for the global preferences or for a specific object.  After EMPTY_CACHE_DELAY seconds, it releases its preferences from memory;
- * it will reload them from disk as needed when accessed again.
+ * for the global preferences or for a specific object.
  *
  * All contacts share a single plist on-disk, loaded into a single mutable dictionary in-memory, objectPrefs.
  * All accounts share a single plist on-disk, loaded into a single mutable dictionary in-memory, accountPrefs.
@@ -56,8 +51,6 @@ static NSTimer				*timer_savingOfAccountCache = nil;
  * SAVE_OBJECT_PREFS_DELAY interval across all instances of AIPreferenceContainer for a given global dictionary. Because creating
  * the data representation of a large dictionary and writing it out can be time-consuming (certainly less than a second, but still long
  * enough to cause a perceptible delay for a user actively typing or interacting with Adium), saving is performed on a thread.
- *
- * When no instances are currently making use of a global dictionary, it is removed from memory; it will be reloaded from disk as needed.
  */
 @implementation AIPreferenceContainer
 
@@ -99,13 +92,11 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 		if (object) {
 			if ([object isKindOfClass:[AIAccount class]]) {
 				myGlobalPrefs = &accountPrefs;
-				myUsersOfGlobalPrefs = &usersOfAccountPrefs;
 				myTimerForSavingGlobalPrefs = &timer_savingOfAccountCache;
 				globalPrefsName = @"AccountPrefs";
 				
 			} else {
 				myGlobalPrefs = &objectPrefs;
-				myUsersOfGlobalPrefs = &usersOfObjectPrefs;
 				myTimerForSavingGlobalPrefs = &timer_savingOfObjectCache;
 				globalPrefsName = @"ByObjectPrefs";
 			}
@@ -120,10 +111,7 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 	[defaults release]; defaults = nil;
 	[group release];
 	[object release];
-	[timer_clearingOfCache release]; timer_clearingOfCache = nil;
 	[globalPrefsName release]; globalPrefsName = nil;
-
-	[self emptyCache:nil];
 	
 	[super dealloc];
 }
@@ -131,49 +119,6 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 + (BOOL)automaticallyNotifiesObserversForKey:(NSString *)theKey
 {
 	return NO;
-}
-
-#pragma mark Cache
-
-/*!
- * @brief Empty our cache
- */
-- (void)emptyCache:(NSTimer *)inTimer
-{
-	if (object) {
-		(*myUsersOfGlobalPrefs)--;
-		
-		[prefs release]; prefs = nil;
-		[prefsWithDefaults release]; prefsWithDefaults = nil;
-		
-		if ((*myUsersOfGlobalPrefs) == 0) {
-			[*myGlobalPrefs release]; *myGlobalPrefs = nil;
-		}
-
-	} else {
-		[prefs release]; prefs = nil;
-		[prefsWithDefaults release]; prefsWithDefaults = nil;
-	}
-	
-	[timer_clearingOfCache release]; timer_clearingOfCache = nil;
-}
-
-/*!
- * @brief Queue clearing of the cache
- *
- * If this method isn't called again within 30 seconds, the passed key will be removed from the passed cache dictionary.
- */
-- (void)queueClearingOfCache
-{
-	if (!timer_clearingOfCache) {
-		timer_clearingOfCache = [[NSTimer scheduledTimerWithTimeInterval:EMPTY_CACHE_DELAY
-																  target:self
-																selector:@selector(emptyCache:)
-																userInfo:nil
-																 repeats:NO] retain];
-	} else {
-		[timer_clearingOfCache setFireDate:[NSDate dateWithTimeIntervalSinceNow:EMPTY_CACHE_DELAY]];
-	}
 }
 
 #pragma mark Defaults
@@ -264,7 +209,6 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 		prefs = [[NSMutableDictionary alloc] init];
 		[*myGlobalPrefs setObject:prefs
 						   forKey:globalPrefsKey];
-		(*myUsersOfGlobalPrefs)++;
 	}
 	[self.prefs setValue:value forKey:key];
 }
@@ -284,16 +228,12 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 			//For compatibility with having loaded individual object prefs from previous version of Adium, we key by the safe filename string
 			NSString *globalPrefsKey = [object.internalObjectID safeFilenameString];
 			prefs = [[*myGlobalPrefs objectForKey:globalPrefsKey] retain];
-			if (prefs)
-				(*myUsersOfGlobalPrefs)++;
 
 		} else {
 			prefs = [[NSMutableDictionary dictionaryAtPath:userDirectory
 												  withName:group
 													create:YES] retain];
 		}
-		
-		[self queueClearingOfCache];
 	}
 	
 	return prefs;
@@ -315,8 +255,6 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 		} else {
 			prefsWithDefaults = [self.prefs retain];
 		}
-		
-		[self queueClearingOfCache];
 	}
 
 	return prefsWithDefaults;
@@ -417,13 +355,34 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 - (void)performObjectPrefsSave:(NSTimer *)inTimer
 {
 	NSDictionary *immutablePrefsToWrite = [[[NSDictionary alloc] initWithDictionary:inTimer.userInfo copyItems:YES] autorelease];
-	[immutablePrefsToWrite asyncWriteToPath:adium.loginController.userDirectory withName:globalPrefsName];
+	/* Data verification */
+#ifdef PREFERENCE_CONTAINER_DEBUG
+//	{
+//		NSData		 *data = [NSData dataWithContentsOfFile:[adium.loginController.userDirectory stringByAppendingPathComponent:[globalPrefsName stringByAppendingPathExtension:@"plist"]]];
+//		NSString	 *errorString = nil;
+//		NSDictionary *theDict = [NSPropertyListSerialization propertyListFromData:data 
+//																 mutabilityOption:NSPropertyListMutableContainers 
+//																		   format:NULL 
+//																 errorDescription:&errorString];
+//		if (theDict && [theDict count] > 0 && [immutablePrefsToWrite count] == 0)
+//		{
+//			NSLog(@"Writing out an empty ByObjectPrefs when we have an existing non-empty one!");
+//			*((int*)0xdeadbeef) = 42;
+//		}
+//	}
+#endif
+#warning figure this out
+	if ([immutablePrefsToWrite count] > 0) {
+		[immutablePrefsToWrite asyncWriteToPath:adium.loginController.userDirectory withName:globalPrefsName];
+	} else {
+		NSLog(@"Attempted to write an empty ByObject Prefs. Uh oh!");
+		*((int*)0xdeadbeef) = 42;
+	}
 	if (inTimer == timer_savingOfObjectCache) {
 			[timer_savingOfObjectCache release]; timer_savingOfObjectCache = nil;
 	} else if (inTimer == timer_savingOfAccountCache) {
 			[timer_savingOfAccountCache release]; timer_savingOfAccountCache = nil;
 	}
-	(*myUsersOfGlobalPrefs)--;
 }
 
 /*!
@@ -436,11 +395,9 @@ static NSTimer				*timer_savingOfAccountCache = nil;
 		if (*myTimerForSavingGlobalPrefs) {
 				[*myTimerForSavingGlobalPrefs setFireDate:[NSDate dateWithTimeIntervalSinceNow:SAVE_OBJECT_PREFS_DELAY]];
 		} else {
-				(*myUsersOfGlobalPrefs)++;
 				
 #ifdef PREFERENCE_CONTAINER_DEBUG
-			// This shouldn't happen now that *myUsersOfGlobalPrefs is synchronized.
-			// Let's just log it for now.
+			// This shouldn't be happening at all.
 			if (!*myGlobalPrefs) {
 				NSLog(@"Attempted to detach to save for %@ [%@], but info was nil.", self, globalPrefsName);
 				AILogWithSignature(@"Attempted to detach to save for %@ [%@], but info was nil.", self, globalPrefsName);

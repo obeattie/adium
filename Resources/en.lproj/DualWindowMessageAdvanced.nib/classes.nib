@@ -50,6 +50,14 @@
 			<string>NSView</string>
 		</dict>
 		<dict>
+			<key>CLASS</key>
+			<string>NSMenu</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSObject</string>
+		</dict>
+		<dict>
 			<key>ACTIONS</key>
 			<dict>
 				<key>adiumPrint</key>
@@ -97,7 +105,31 @@
 		</dict>
 		<dict>
 			<key>CLASS</key>
+			<string>NSView</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSResponder</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
+			<string>NSMenuItem</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSObject</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
 			<string>FirstResponder</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSObject</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
+			<string>NSCell</string>
 			<key>LANGUAGE</key>
 			<string>ObjC</string>
 			<key>SUPERCLASS</key>
@@ -121,7 +153,7 @@
 				<string>NSView</string>
 			</dict>
 			<key>SUPERCLASS</key>
-			<string>AIObject</string>
+			<string>NSObject</string>
 		</dict>
 		<dict>
 			<key>CLASS</key>
@@ -133,11 +165,27 @@
 		</dict>
 		<dict>
 			<key>CLASS</key>
-			<string>AIObject</string>
+			<string>NSPopUpButton</string>
 			<key>LANGUAGE</key>
 			<string>ObjC</string>
 			<key>SUPERCLASS</key>
-			<string>NSObject</string>
+			<string>NSButton</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
+			<string>NSTabView</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSView</string>
+		</dict>
+		<dict>
+			<key>CLASS</key>
+			<string>NSPopUpButtonCell</string>
+			<key>LANGUAGE</key>
+			<string>ObjC</string>
+			<key>SUPERCLASS</key>
+			<string>NSMenuItemCell</string>
 		</dict>
 		<dict>
 			<key>CLASS</key>
@@ -175,8 +223,6 @@
 			<dict>
 				<key>autohide_tabBar</key>
 				<string>NSButton</string>
-				<key>checkBox_allowInactiveClosing</key>
-				<string>NSButton</string>
 				<key>checkBox_animateDockIcon</key>
 				<string>NSButton</string>
 				<key>checkBox_badgeDockIcon</key>
@@ -187,6 +233,10 @@
 				<string>NSButton</string>
 				<key>checkBox_psychicOpen</key>
 				<string>NSButton</string>
+				<key>checkBox_showTabCount</key>
+				<string>NSButton</string>
+				<key>checkBox_unreadMentionCount</key>
+				<string>NSButton</string>
 				<key>popUp_minimumFontSize</key>
 				<string>NSPopUpButton</string>
 				<key>popUp_nameFormat</key>
@@ -195,6 +245,12 @@
 				<string>NSPopUpButton</string>
 				<key>popUp_windowPosition</key>
 				<string>NSPopUpButton</string>
+				<key>tabViewItem_group</key>
+				<string>NSTabViewItem</string>
+				<key>tabViewItem_regular</key>
+				<string>NSTabViewItem</string>
+				<key>tabView_messageType</key>
+				<string>NSTabView</string>
 			</dict>
 			<key>SUPERCLASS</key>
 			<string>AIAdvancedPreferencePane</string>

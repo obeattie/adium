@@ -155,7 +155,7 @@
 			
 		} else /*if ([setOrObject isKindOfClass:[NSSet class]])*/{
 			//Apply the image to each listObject at the appropriate priority
-			for (AIListObject *listObject in (NSSet *)setOrObject) {
+			for (AIListObject *listObject in [[(NSSet *)setOrObject copy] autorelease]) {
 				[AIUserIcons userIconSource:self
 					   didDetermineUserIcon:image
 							 asynchronously:YES
@@ -204,17 +204,17 @@
 		previousValue = [trackingDict objectForKey:tagNumber];
 		
 		if ([previousValue isKindOfClass:[AIListObject class]]) {
-			//If the old value is just a listObject, create an array with the old object
+			//If the old value is just a listObject, create a mutable set with the old object
 			//and the new object
 			if (previousValue != inObject) {
 				objectSet = [NSMutableSet setWithObjects:previousValue,inObject,nil];
 				
-				//Store the array in the tracking dict
+				//Store the set in the tracking dict
 				[trackingDict setObject:objectSet forKey:tagNumber];
 			}
 
-		} else /*if ([previousValue isKindOfClass:[NSMutableArray class]])*/{
-			//Add the new object to the previously-created array
+		} else /*if ([previousValue isKindOfClass:[NSMutableSet class]])*/{
+			//Add the new object to the previously-created set
 			[(NSMutableSet *)previousValue addObject:inObject];
 		}
 

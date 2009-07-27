@@ -117,6 +117,11 @@ static PurpleConversation *fakeConversation(PurpleAccount *account);
 	
 	// The fakeConversation was allocated; now free it.
 	g_free(conv);
+	
+	// Set a fake display name preference since we differ from global always.
+	[self setPreference:[[NSAttributedString stringWithString:@"Adium"] dataRepresentation]
+				 forKey:KEY_ACCOUNT_DISPLAY_NAME
+				  group:GROUP_ACCOUNT_STATUS];
 }
 
 /*!
@@ -293,7 +298,7 @@ static PurpleConversation *fakeConversation(PurpleAccount *account)
 	} else if ([self.host rangeOfString:@"gamesurge" options:NSCaseInsensitiveSearch].location != NSNotFound) {
 		[self sendRawCommand:[NSString stringWithFormat:@"PRIVMSG AuthServ@Services.GameSurge.net :AUTH %@ %@", name, inPassword]];
 	} else {
-		[self sendRawCommand:[NSString stringWithFormat:@"NICKSERV identify %@ %@", name, inPassword]];	
+		[self sendRawCommand:[NSString stringWithFormat:@"NICKSERV identify %@", inPassword]];	
 	}
 }
 

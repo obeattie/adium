@@ -49,6 +49,7 @@
 
 - (const char*)protocolPlugin;
 - (PurpleAccount*)purpleAccount;
+- (PurplePluginProtocolInfo *)protocolInfo;
 - (void)setPurpleAccount:(PurpleAccount *)inAccount;
 - (const char *)purpleAccountName;
 
@@ -196,7 +197,7 @@
 - (void)renameParticipant:(NSString *)oldUID newName:(NSString *)newUID newAlias:(NSString *)newAlias flags:(AIGroupChatFlags)flags inChat:(AIChat *)chat;
 - (void)removeUser:(NSString *)contactName fromChat:(AIChat *)chat;
 - (void)updateUserListForChat:(AIChat *)chat users:(NSArray *)users newlyAdded:(BOOL)newlyAdded;
-- (void)updateUser:(NSString *)user forChat:(AIChat *)chat flags:(AIGroupChatFlags)flags attributes:(NSDictionary *)attributes;
+- (void)updateUser:(NSString *)user forChat:(AIChat *)chat flags:(AIGroupChatFlags)flags alias:(NSString *)alias attributes:(NSDictionary *)attributes;
 - (NSDictionary *)willJoinChatUsingDictionary:(NSDictionary *)chatCreationDictionary;
 - (BOOL)chatCreationDictionary:(NSDictionary *)chatCreationDict isEqualToDictionary:(NSDictionary *)baseDict;
 - (NSDictionary *)extractChatCreationDictionaryFromConversation:(PurpleConversation *)conv;

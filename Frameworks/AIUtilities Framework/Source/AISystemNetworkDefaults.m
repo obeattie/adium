@@ -15,6 +15,7 @@
 @implementation AISystemNetworkDefaults
 
 + (NSDictionary *)systemProxySettingsDictionaryForType:(ProxyType)proxyType
+											 forServer:(NSString *)hostName
 {
 	NSMutableDictionary *systemProxySettingsDictionary = nil;
 	NSDictionary		*proxyDict = nil;
@@ -120,7 +121,7 @@
 				NSString *pacFile = [proxyDict objectForKey:(NSString *)kSCPropNetProxiesProxyAutoConfigURLString];
 				
 				if (pacFile) {
-					CFURLRef url = (CFURLRef)[NSURL URLWithString:@"http://www.google.com"];
+					CFURLRef url = (CFURLRef)[NSURL URLWithString:[NSString stringWithFormat:@"http://%@", hostName ?: @"google.com"]];
 					NSString *scriptStr = [NSString stringWithContentsOfURL:[NSURL URLWithString:pacFile] encoding:NSUTF8StringEncoding error:NULL];
 					
 					if (url && scriptStr) {
@@ -131,8 +132,20 @@
 						// that is required by CFNetworkCopyProxiesForAutoConfigurationScript.
 						CFRelease(CFNetworkCopyProxiesForURL(url, NULL));
 						
-						proxies = [(NSArray *)CFNetworkCopyProxiesForAutoConfigurationScript((CFStringRef)scriptStr, url, NULL) autorelease];
-						if (proxies && proxies.count) {
+						CFErrorRef error = NULL;
+						proxies = [(NSArray *)CFNetworkCopyProxiesForAutoConfigurationScript((CFStringRef)scriptStr, url, &error) autorelease];	
+
+						if (error) {
+							CFStringRef description = CFErrorCopyDescription(error);
+							
+							NSLog(@"Tried to get PAC, but got error: %@ %d %@",
+								  CFErrorGetDomain(error),
+								  CFErrorGetCode(error),
+								  description);
+							
+							CFRelease(description);
+							CFRelease(error);
+						} else if (proxies && proxies.count) {
 							proxyDict = [proxies objectAtIndex:0];
 							
 							systemProxySettingsDictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:

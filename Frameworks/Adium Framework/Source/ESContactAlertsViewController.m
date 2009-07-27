@@ -494,7 +494,8 @@ NSComparisonResult actionSort(id objectA, id objectB, void *context)
 			[contactAlertsEvents addObject:eventID];
 			
 			//XXX
-			[contactAlertsActions addObject:[NSArray array]];
+			//This is explicitly a mutable array because Foundation optimizes all zero-count NSArrays to be the same object, and we need it to be different
+			[contactAlertsActions addObject:[NSMutableArray array]];
 		}
 	}
 
@@ -844,7 +845,7 @@ NSComparisonResult actionSort(id objectA, id objectB, void *context)
 	NSDictionary	*eventDict;
 
 	[adium.preferenceController delayPreferenceChangedNotifications:YES];
-	for (eventDict in contactEventArray) {
+	for (eventDict in [[contactEventArray copy] autorelease]) {
 		[adium.contactAlertsController removeAlert:eventDict fromListObject:listObject];
 	}
 	[adium.preferenceController delayPreferenceChangedNotifications:NO];

@@ -135,6 +135,12 @@
 														[connectServer UTF8String] :
 														""));
 	
+	// FT proxies
+	NSString *ftProxies = [self preferenceForKey:KEY_JABBER_FT_PROXIES group:GROUP_ACCOUNT_STATUS];
+	if (ftProxies.length) {
+		purple_account_set_string(account, "ft_proxies", [ftProxies UTF8String]);
+	}
+	
 	//Force old SSL usage? (off by default)
 	forceOldSSL = [[self preferenceForKey:KEY_JABBER_FORCE_OLD_SSL group:GROUP_ACCOUNT_STATUS] boolValue];
 	purple_account_set_bool(account, "old_ssl", forceOldSSL);
@@ -340,15 +346,6 @@
 	}
 }
 
-#pragma mark Contacts
-- (void)updateSignon:(AIListContact *)theContact withData:(void *)data
-{
-	[super updateSignon:theContact withData:data];
-	
-	//We only get user icons in Jabber when we request info. Do that now!
-	[self delayedUpdateContactStatus:theContact];
-}
-
 #pragma mark Status
 
 - (NSString *)encodedAttributedString:(NSAttributedString *)inAttributedString forListObject:(AIListObject *)inListObject
@@ -515,6 +512,10 @@
 
 	} else if (strcmp(label,  "Cancel Presence Notification") == 0) {
 		return [NSString stringWithFormat:AILocalizedString(@"Cancel Presence Notification to %@",nil),inContact.formattedUID];	
+		
+	} else if (strcmp(label,  _("Ping")) == 0) {
+		return [NSString stringWithFormat:AILocalizedString(@"Ping %@",nil),inContact.formattedUID];	
+		
 	}
 	
 	return [super titleForContactMenuLabel:label forContact:inContact];

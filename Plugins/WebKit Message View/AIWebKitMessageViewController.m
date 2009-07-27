@@ -50,6 +50,7 @@
 #import <AIUtilities/AIStringAdditions.h>
 #import <AIUtilities/AIAttributedStringAdditions.h>
 #import <AIUtilities/JVMarkedScroller.h>
+#import <objc/objc-runtime.h>
 
 #define KEY_WEBKIT_CHATS_USING_CACHED_ICON @"WebKit:Chats Using Cached Icon"
 
@@ -240,19 +241,12 @@ static NSArray *draggedTypes = nil;
 
 //WebView --------------------------------------------------------------------------------------------------
 #pragma mark WebView
-- (NSView *)messageView
-{
-	return webView;
-}
+
+@synthesize messageStyle, messageView = webView;
 
 - (NSView *)messageScrollView
 {
 	return [[webView mainFrame] frameView];
-}
-
-- (AIWebkitMessageViewStyle *)messageStyle
-{
-	return messageStyle;
 }
 
 /*!
@@ -582,20 +576,20 @@ static NSArray *draggedTypes = nil;
  */
 - (void)processQueuedContent
 {
-	NSUInteger	contentQueueCount, objectsAdded = 0;
-	BOOL		willAddMoreContentObjects = NO;
+	/* If the webview isn't ready, assume we have at least one piece of content left to display */
+	NSUInteger	contentQueueCount = 1;
+	NSUInteger	objectsAdded = 0;
 	
 	if (webViewIsReady) {
-		contentQueueCount = [contentQueue count];
+		contentQueueCount = contentQueue.count;
 
 		while (contentQueueCount > 0) {
-			AIContentObject *content;
-
-			willAddMoreContentObjects = (contentQueueCount > 1);
+			BOOL willAddMoreContent = (contentQueueCount > 1);
 			
 			//Display the content
-			content = [contentQueue objectAtIndex:0];
-			[self _processContentObject:content willAddMoreContentObjects:willAddMoreContentObjects];
+			AIContentObject *content = [contentQueue objectAtIndex:0];
+			[self _processContentObject:content 
+			  willAddMoreContentObjects:willAddMoreContent];
 
 			//If we are going to reflect preference changes, store this content object
 			if (shouldReflectPreferenceChanges) {
@@ -607,18 +601,15 @@ static NSArray *draggedTypes = nil;
 			objectsAdded++;
 			contentQueueCount--;
 		}
-	} else {
-		/* If the webview isn't ready, assume we have at least one piece of content left to display */
-		contentQueueCount = 1;
 	}
 	
 	/* If we added two or more objects, we may want to scroll to the bottom now, having not done it as each object
 	 * was added.
 	 */
 	if (objectsAdded > 1) {
-		NSString	*scrollToBottomScript;
+		NSString	*scrollToBottomScript = [messageStyle scriptForScrollingAfterAddingMultipleContentObjects];
 		
-		if ((scrollToBottomScript = [messageStyle scriptForScrollingAfterAddingMultipleContentObjects])) {
+		if (scrollToBottomScript) {
 			[webView stringByEvaluatingJavaScriptFromString:scrollToBottomScript];
 		}
 	}
@@ -668,6 +659,7 @@ static NSArray *draggedTypes = nil;
 	BOOL similar = (previousContent && [content isSimilarToContent:previousContent] && ![content isKindOfClass:[ESFileTransfer class]]);
 	if ([previousContent isKindOfClass:[AIContentStatus class]] && [content isKindOfClass:[AIContentStatus class]] &&
 		[[(AIContentStatus *)previousContent coalescingKey] isEqualToString:[(AIContentStatus *)content coalescingKey]]) {
+		similar = NO;
 		replaceLastContent = YES;
 	}
 
@@ -799,8 +791,7 @@ static NSArray *draggedTypes = nil;
 				[webViewMenuItems removeObjectIdenticalTo:menuItem];
 			} else {
 				//This isn't as nice; there's no tag available. Use the localization from WebKit to look at the title.
-				if ((tag == WebMenuItemTagOther) &&
-					[[menuItem title] isEqualToString:NSLocalizedStringFromTableInBundle(@"Open Link", nil, [NSBundle bundleForClass:[WebView class]], nil)])
+				if ([[menuItem title] isEqualToString:NSLocalizedStringFromTableInBundle(@"Open Link", nil, [NSBundle bundleForClass:[WebView class]], nil)])
 					[webViewMenuItems removeObjectIdenticalTo:menuItem];					
 			}
 		}
@@ -1441,15 +1432,13 @@ static NSArray *draggedTypes = nil;
 
 - (NSNumber *)currentOffsetHeight
 {
-	DOMElement *element = (DOMElement *)[(DOMHTMLDocument *)webView.mainFrameDocument body];
 	// We use the body's height to determine our mark location.
-	return [element valueForKey:@"scrollHeight"];
+	return [(DOMElement *)[(DOMHTMLDocument *)webView.mainFrameDocument body] valueForKey:@"scrollHeight"];
 }
 
 - (void)markCurrentLocation
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	[scroller addMarkAt:[self.currentOffsetHeight integerValue]];
+	[self.markedScroller addMarkAt:[self.currentOffsetHeight integerValue]];
 }
 
 #define PREF_KEY_FOCUS_LINE	@"Draw Focus Lines"
@@ -1462,9 +1451,7 @@ static NSArray *draggedTypes = nil;
 	[scroller removeMarkWithIdentifier:@"focus"];
 	[scroller addMarkAt:[self.currentOffsetHeight integerValue] withIdentifier:@"focus" withColor:[NSColor redColor]];	
 	
-	DOMElement *element;
-		
-	element = (DOMElement *)[webView.mainFrameDocument getElementById:@"focus"];
+	DOMElement *element = (DOMElement *)[webView.mainFrameDocument getElementById:@"focus"];
 	if (element) {
 		[element.parentNode removeChild:element];
 	}
@@ -1480,44 +1467,37 @@ static NSArray *draggedTypes = nil;
 
 - (void)addMark
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	[scroller addMarkAt:[self.currentOffsetHeight integerValue] withColor:[NSColor greenColor]];
+	[self.markedScroller addMarkAt:[self.currentOffsetHeight integerValue] withColor:[NSColor greenColor]];
 }
 
 - (void)jumpToPreviousMark
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	[scroller jumpToPreviousMark:nil];
+	[self.markedScroller jumpToPreviousMark:nil];
 }
 
 - (BOOL)previousMarkExists
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	return [scroller previousMarkExists];
+	return [self.markedScroller previousMarkExists];
 }
 
 - (void)jumpToNextMark
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	[scroller jumpToNextMark:nil];	
+	[self.markedScroller jumpToNextMark:nil];	
 }
 
 - (BOOL)nextMarkExists
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	return [scroller nextMarkExists];	
+	return [self.markedScroller nextMarkExists];	
 }
 
 - (void)jumpToFocusMark
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	[scroller jumpToFocusMark:nil];
+	[self.markedScroller jumpToFocusMark:nil];
 }
 
 - (BOOL)focusMarkExists
 {
-	JVMarkedScroller *scroller = self.markedScroller;
-	return [scroller focusMarkExists];
+	return [self.markedScroller focusMarkExists];
 }
 
 #pragma mark JS Bridging
@@ -1526,9 +1506,13 @@ static NSArray *draggedTypes = nil;
 
 + (BOOL)isSelectorExcludedFromWebScript:(SEL)aSelector
 {
-	if(aSelector == @selector(handleAction:forFileTransfer:)) return NO;
-	if(aSelector == @selector(debugLog:)) return NO;
-	if(aSelector == @selector(zoomImage:)) return NO;
+	if (
+		sel_isEqual(aSelector, @selector(handleAction:forFileTransfer:)) ||
+		sel_isEqual(aSelector, @selector(debugLog:)) ||
+		sel_isEqual(aSelector, @selector(zoomImage:))
+	)
+		return NO;
+	
 	return YES;
 }
 
@@ -1543,9 +1527,9 @@ static NSArray *draggedTypes = nil;
  */
 + (NSString *)webScriptNameForSelector:(SEL)aSelector
 {
-	if(aSelector == @selector(handleAction:forFileTransfer:)) return @"handleFileTransfer";
-	if(aSelector == @selector(debugLog:)) return @"debugLog";
-	if(aSelector == @selector(zoomImage:)) return @"zoomImage";
+	if (sel_isEqual(aSelector, @selector(handleAction:forFileTransfer:))) return @"handleFileTransfer";
+	if (sel_isEqual(aSelector, @selector(debugLog:))) return @"debugLog";
+	if (sel_isEqual(aSelector, @selector(zoomImage:))) return @"zoomImage";
 	return @"";
 }
 

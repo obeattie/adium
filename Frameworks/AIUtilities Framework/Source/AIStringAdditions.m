@@ -816,4 +816,23 @@ static enum characterNatureMask characterNature[USHRT_MAX+1] = {
 	return [self caseInsensitiveCompare:other] == NSOrderedSame;
 }
 
+- (unsigned long long)unsignedLongLongValue
+{
+	return [[NSDecimalNumber decimalNumberWithString:self] unsignedLongLongValue];
+}
+
+- (NSString *)stringByAddingPercentEscapesForAllCharacters
+{
+	// RFC 2396:
+	//       reserved    = ";" | "/" | "?" | ":" | "@" | "&" | "=" | "+" |	"$" | ","
+	
+	NSString *string = (NSString *)CFURLCreateStringByAddingPercentEscapes(NULL,
+																		   (CFStringRef)self, 
+																		   NULL,
+																		   (CFStringRef)@";/?:@&=+$",
+																		   kCFStringEncodingUTF8);
+
+	return [string autorelease];
+}
+
 @end

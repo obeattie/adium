@@ -21,7 +21,7 @@
 #import <Adium/AIContactList.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 
-#define SERVERFEEDRSSURL @"http://www.jabber.org/full_servers.xml"
+#define SERVERFEEDRSSURL @"http://xmpp.org/services/services-full.xml"
 
 @implementation ESPurpleJabberAccountViewController
 
@@ -69,6 +69,10 @@
 	[textField_priorityAvailable setStringValue:(priority ? [priority stringValue] : @"")];
 	priority = [account preferenceForKey:KEY_JABBER_PRIORITY_AWAY group:GROUP_ACCOUNT_STATUS];
 	[textField_priorityAway setStringValue:(priority ? [priority stringValue] : @"")];
+	
+	//File transfer proxies
+	NSString *ftProxies = [account preferenceForKey:KEY_JABBER_FT_PROXIES group:GROUP_ACCOUNT_STATUS];
+	[textField_ftProxies setStringValue:ftProxies ?: @""];
 		
 	//Subscription behavior
 	int subbeh = [[account preferenceForKey:KEY_JABBER_SUBSCRIPTION_BEHAVIOR group:GROUP_ACCOUNT_STATUS] intValue];
@@ -105,7 +109,11 @@
 	//Connect server
 	[account setPreference:([[textField_connectServer stringValue] length] ? [textField_connectServer stringValue] : nil)
 					forKey:KEY_JABBER_CONNECT_SERVER group:GROUP_ACCOUNT_STATUS];
-
+	
+	//FT proxies
+	[account setPreference:[textField_ftProxies stringValue]
+					forKey:KEY_JABBER_FT_PROXIES group:GROUP_ACCOUNT_STATUS];
+	
 	//Priority
 	[account setPreference:([textField_priorityAvailable intValue] ? [NSNumber numberWithInt:[textField_priorityAvailable intValue]] : nil)
 					forKey:KEY_JABBER_PRIORITY_AVAILABLE
@@ -225,7 +233,7 @@ static NSComparisonResult compareByDistance(id one, id two, void*context) {
 				servers = [[NSMutableArray alloc] init];
 				
 				for (NSXMLElement *item in items) {
-					NSXMLElement *title = [[item elementsForName:@"name"] lastObject];
+					NSXMLElement *title = [[item elementsForName:@"domain"] lastObject];
 					if(!title)
 						continue;
 					NSXMLElement *description = [[item elementsForName:@"description"] lastObject];
@@ -314,13 +322,12 @@ static NSComparisonResult compareByDistance(id one, id two, void*context) {
 
 - (IBAction)registerRequestAccount:(id)sender {
 	[[sender window] makeFirstResponder:nil]; // apply all changes
+	
 	if([[textField_registerServerName stringValue] length] == 0) {
 		NSBeep();
 		return;
 	}
-//	[account setUID:[NSString stringWithFormat:@"unknown@%@", [textField_registerServerName stringValue]]];
-	[account setPreference:[textField_registerServerName stringValue]
-					forKey:KEY_JABBER_CONNECT_SERVER group:GROUP_ACCOUNT_STATUS];
+	
 	[account setPreference:[NSNumber numberWithInt:[textField_registerServerPort intValue]]
 					forKey:KEY_CONNECT_PORT group:GROUP_ACCOUNT_STATUS];
 

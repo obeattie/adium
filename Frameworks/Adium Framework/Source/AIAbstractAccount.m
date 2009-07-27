@@ -305,6 +305,14 @@
 	}
 }
 
+/*!
+ * @brief Called when the account was edited.
+ */
+- (void)accountEdited
+{
+	// Do nothing by default.
+}
+
 //Status ---------------------------------------------------------------------------------------------------------------
 #pragma mark Status
 - (NSString *)effectiveStatusKeyForKey:(NSString *)key
@@ -1002,7 +1010,7 @@
 	if ([dynamicKeys count]) {
 		NSString        *key;
 		
-		for (key in dynamicKeys) {
+		for (key in [[dynamicKeys copy] autorelease]) {
 			[self updateStatusForKey:key];
 		}
 		
@@ -1548,7 +1556,8 @@
 				systemConfigurationProxyType = Proxy_SOCKS4;
 			}
 			
-			if ((systemProxySettingsDictionary = [AISystemNetworkDefaults systemProxySettingsDictionaryForType:systemConfigurationProxyType])) {
+			if ((systemProxySettingsDictionary = [AISystemNetworkDefaults systemProxySettingsDictionaryForType:systemConfigurationProxyType
+																									 forServer:self.host])) {
 				host = [systemProxySettingsDictionary objectForKey:@"Host"];
 				port = [systemProxySettingsDictionary objectForKey:@"Port"];
 				

@@ -46,8 +46,6 @@
 		chatCreationDictionary = [inChatCreationDictionary copy];
 		name = [inName copy];
 		
-		[self restoreGrouping];
-		
 		[adium.chatController registerChatObserver:self];
 		
 		[self.account addObserver:self
@@ -89,11 +87,14 @@
 		return nil;
 	}
 	
-	return [self initWithUID:[decoder decodeObjectForKey:@"UID"]
-					 account:myAccount
-					 service:[adium.accountController firstServiceWithServiceID:[decoder decodeObjectForKey:@"ServiceID"]]
-				  dictionary:[decoder decodeObjectForKey:@"chatCreationDictionary"]
-						name:[decoder decodeObjectForKey:@"name"]];
+	if ((self = [self initWithUID:[decoder decodeObjectForKey:@"UID"]
+						  account:myAccount
+						  service:[adium.accountController firstServiceWithServiceID:[decoder decodeObjectForKey:@"ServiceID"]]
+					   dictionary:[decoder decodeObjectForKey:@"chatCreationDictionary"]
+							 name:[decoder decodeObjectForKey:@"name"]])) {
+		[self restoreGrouping];
+	}
+	return self;
 }
 
 
@@ -188,6 +189,16 @@
 }
 
 /*!
+ * @brief For a newly created bookmark, set the group that -restoreGrouping will move us to. This is saved, so has no use on existing bookmarks
+ */
+- (void)setInitialGroup:(AIListGroup *)inGroup
+{
+	[self setPreference:inGroup.UID
+				 forKey:KEY_CONTAINING_OBJECT_UID
+				  group:OBJECT_STATUS_CACHE];	
+}
+
+/*!
  * @brief Add a containing group
  *
  * When adding a containing group, save the group's UID so that we can rejoin the group next time.
@@ -234,10 +245,12 @@
 /*!
  * @brief Open our chat
  *
+ * @return A chat for the bookmark
+ *
  * This is called when we are double-clicked in the contact list.
  * Either find or create a chat appropriately, and activate it.
  */
-- (void)openChat
+- (AIChat *)openChat
 {
 	AIChat *chat = [self openChatWithoutActivating];
 	
@@ -246,6 +259,8 @@
 	}
 	
 	[adium.interfaceController setActiveChat:chat];
+	
+	return chat;
 }
 
 /*!

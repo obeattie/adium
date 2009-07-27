@@ -640,7 +640,7 @@
 	// If we use aliases...
 	if (useAliasesAsRequested) {
 		// If we use aliases on non-parents OR this is a parent...
-		if (useAliasesOnNonParentContacts || ![((AIListContact *)listObject).containingObjects containsObject:((AIListContact *)listObject).parentContact]) {
+		if (useAliasesOnNonParentContacts || !((AIListContact *)listObject).metaContact) {
 			return YES;
 		}
 	}
@@ -669,7 +669,7 @@
 - (NSColor *)textColor
 {
 	NSColor	*theTextColor;
-	BOOL	isEvent = [listObject boolValueForProperty:@"Is Event"];
+	//BOOL	isEvent = [listObject boolValueForProperty:@"Is Event"];
 	/* XXX If it's an event, we may want to be inheriting from more than just the metacontact's preferred contact...
 	 * this is the only case for that which I've come across */
 	if (shouldUseContactTextColors && (theTextColor = [listObject valueForProperty:@"Text Color"])) {

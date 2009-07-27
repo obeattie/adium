@@ -34,6 +34,7 @@
 #import <AIUtilities/AIImageAdditions.h>
 #import <AIUtilities/AIStringAdditions.h>
 #import <AIUtilities/AIMutableStringAdditions.h>
+#import <AIUtilities/AIObjectAdditions.h>
 #import <Growl-WithInstaller/Growl.h>
 
 //#define GROWL_DEBUG 1
@@ -57,6 +58,20 @@
 
 @interface NEHGrowlPlugin ()
 - (NSAttributedString *)_growlInformationForUpdate:(BOOL)isUpdate;
+- (NSString *)eventQueueKeyForEventID:(NSString *)eventID
+							   inChat:(AIChat *)chat;
+
+- (void)postSingleEventID:(NSString *)eventID
+			forListObject:(AIListObject *)listObject
+			  withDetails:(NSDictionary *)details
+				 userInfo:(id)userInfo;
+
+- (void)postMultipleEventID:(NSString *)eventID
+					 sticky:(BOOL)sticky
+				   priority:(NSInteger)priority
+			  forListObject:(AIListObject *)listObject
+					forChat:(AIChat *)chat
+				  withCount:(NSUInteger)count;
 @end
  
 /*!
@@ -78,6 +93,15 @@
 								   selector:@selector(adiumFinishedLaunching:)
 									   name:AIApplicationDidFinishLoadingNotification
 									 object:nil];
+	
+	queuedEvents = [[NSMutableDictionary alloc] init];
+}
+
+- (void)dealloc
+{
+	[queuedEvents release]; queuedEvents = nil;
+	
+	[super dealloc];
 }
 
 /*!
@@ -165,16 +189,172 @@
  */
 - (BOOL)performActionID:(NSString *)actionID forListObject:(AIListObject *)listObject withDetails:(NSDictionary *)details triggeringEventID:(NSString *)eventID userInfo:(id)userInfo
 {
+	// Don't show growl notifications if we're silencing growl.
+	if ([adium.statusController.activeStatusState silencesGrowl]) {
+		return NO;
+	}
+	
+	// Get the chat if it's appropriate.
+	AIChat *chat = nil;
+	
+	if ([userInfo respondsToSelector:@selector(objectForKey:)]) {
+		chat = [userInfo objectForKey:@"AIChat"];
+		AIContentObject *contentObject = [userInfo objectForKey:@"AIContentObject"];
+		if (contentObject.source) {
+			listObject = contentObject.source;
+		}
+	}
+	
+	// Add this event to the queue.
+	NSString *queueKey = [self eventQueueKeyForEventID:eventID inChat:chat];
+	
+	NSMutableArray *events = [queuedEvents objectForKey:queueKey];
+	
+	if (!events)
+		events = [NSMutableArray array];
+	
+	NSMutableDictionary *eventDetails = [NSMutableDictionary dictionary];
+	
+	if (listObject)
+		[eventDetails setValue:listObject forKey:@"AIListObject"];
+	
+	if (userInfo)
+		[eventDetails setValue:userInfo forKey:@"UserInfo"];
+	
+	if (details)
+		[eventDetails setValue:details forKey:@"Details"];
+	
+	[events addObject:eventDetails];
+	
+	[queuedEvents setValue:events forKey:queueKey];
+	
+	// wtb cancelPreviousPerformRequestsWithTarget:selector:object:object:
+	// chat may be nil
+	NSDictionary *queueCall = [NSDictionary dictionaryWithObjectsAndKeys:eventID, @"EventID", chat, @"AIChat", nil];
+	
+	// Trigger the queue to be cleared in GROWL_QUEUE_WAIT seconds.
+	[NSObject cancelPreviousPerformRequestsWithTarget:self
+											 selector:@selector(clearQueue:)
+											   object:queueCall];
+	
+	[self performSelector:@selector(clearQueue:)
+			   withObject:queueCall
+			   afterDelay:GROWL_QUEUE_WAIT];
+	
+	// If the queue has <GROWL_QUEUE_POST_COUNT entries already, post this one immediately.
+	if (events.count < GROWL_QUEUE_POST_COUNT) {
+		[self postSingleEventID:eventID
+				  forListObject:listObject
+					withDetails:details
+					   userInfo:userInfo];
+	}
+
+	return YES;
+}
+
+/*!
+ * @brief Returns our details pane, an instance of <tt>CBGrowlAlertDetailPane</tt>
+ */
+- (AIModularPane *)detailsPaneForActionID:(NSString *)actionID
+{
+    return [CBGrowlAlertDetailPane actionDetailsPane];
+}
+
+/*!
+ * @brief Allow multiple actions?
+ *
+ * This action should not be performed multiple times for the same triggering event.
+ */
+- (BOOL)allowMultipleActionsWithID:(NSString *)actionID
+{
+	return NO;
+}
+
+#pragma mark Event Queue
+- (NSString *)eventQueueKeyForEventID:(NSString *)eventID
+							   inChat:(AIChat *)chat
+{
+	if (chat) {
+		return [NSString stringWithFormat:@"%@-%@", eventID, chat.internalObjectID];
+	} else {
+		return eventID;
+	}
+}
+
+- (void)clearQueue:(NSDictionary *)callDict
+{
+	// Grab our actual arguments.
+	NSString *eventID = [callDict objectForKey:@"EventID"];
+	AIChat *chat = [callDict objectForKey:@"AIChat"];
+	
+	// Look for events.
+	NSString *queueKey = [self eventQueueKeyForEventID:eventID inChat:chat];
+	NSMutableArray *events = [queuedEvents objectForKey:queueKey];
+	
+	// If for some reason we don't have any events, bail.
+	if (!events.count) {
+		AILogWithSignature(@"Called to clear queue with no events. EventID: %@ chat: %@", eventID, chat);
+		return;
+	}
+	
+	// Remove the first GROWL_QUEUE_POST_COUNT entries, since we've already posted about them.
+	NSRange removeRange = NSMakeRange(0,
+									  (events.count > GROWL_QUEUE_POST_COUNT ? GROWL_QUEUE_POST_COUNT : events.count));
+
+	[events removeObjectsInRange:removeRange];
+	
+	if (events.count == 1) {
+		// Seeing "1 message" is just silly!
+		
+		NSDictionary *event = [events objectAtIndex:0];
+		
+		[self postSingleEventID:eventID
+				  forListObject:[event objectForKey:@"AIListObject"]
+					withDetails:[event objectForKey:@"Details"]
+					   userInfo:[event objectForKey:@"UserInfo"]];
+		
+	} else if(events.count) {		
+		// We have a bunch of events; let's combine them.
+		AIListObject *overallListObject = nil;
+
+		// If all events are from the same listObject, let's use that one in the message.
+		NSArray *listObjects = [events valueForKeyPath:@"@distinctUnionOfObjects.AIListObject"];
+		
+		if (listObjects.count == 1) {
+			overallListObject = [listObjects objectAtIndex:0];
+		}
+		
+		AILog(@"Posting multiple event - %@ %@ %@ %d", eventID, overallListObject, chat, events.count);
+		
+		// Use any random event for sticky.
+		NSDictionary *anyEventDetails = [[events objectAtIndex:0] objectForKey:@"Details"];
+		
+		BOOL sticky = [[anyEventDetails objectForKey:KEY_GROWL_ALERT_STICKY] boolValue];
+		NSInteger priority = [[anyEventDetails objectForKey:KEY_GROWL_PRIORITY] integerValue];
+		
+		// Post the events combined. Use any random event to see if sticky.
+		[self postMultipleEventID:eventID
+						   sticky:sticky
+						 priority:priority
+					forListObject:overallListObject
+						  forChat:chat
+						withCount:events.count];
+	}
+	
+	// Clear our queue; we're done.
+	[queuedEvents setValue:nil forKey:queueKey];
+}
+
+- (void)postSingleEventID:(NSString *)eventID
+			forListObject:(AIListObject *)listObject
+			  withDetails:(NSDictionary *)details
+				 userInfo:(id)userInfo
+{
 	NSString			*title, *description;
 	AIChat				*chat = nil;
 	NSData				*iconData = nil;
 	NSMutableDictionary	*clickContext = [NSMutableDictionary dictionary];
 	NSString			*identifier = nil;
-	
-	// Don't show growl notifications if we're silencing growl.
-	if ([adium.statusController.activeStatusState silencesGrowl]) {
-		return NO;
-	}
 
 	//For a message event, listObject should become whoever sent the message
 	if ([adium.contactAlertsController isMessageEvent:eventID] &&
@@ -183,13 +363,13 @@
 		AIContentObject	*contentObject = [userInfo objectForKey:@"AIContentObject"];
 		AIListObject	*source = [contentObject source];
 		chat = [userInfo objectForKey:@"AIChat"];
-
+		
 		if (source) listObject = source;
 	}
-
+	
 	[clickContext setObject:eventID
 					 forKey:@"eventID"];
-
+	
 	if (listObject) {
 		if ([listObject isKindOfClass:[AIListContact class]]) {
 			//Use the parent
@@ -216,20 +396,20 @@
 				[eventID isEqualToString:FILE_TRANSFER_COMPLETE]) {
 				[clickContext setObject:[(ESFileTransfer *)userInfo uniqueID]
 								 forKey:KEY_FILE_TRANSFER_ID];
-
+				
 			} else {
 				[clickContext setObject:listObject.internalObjectID
 								 forKey:KEY_LIST_OBJECT_ID];
 			}
 		}
-
+		
 	} else {
 		if (chat) {
-			title = chat.name;
-
+			title = chat.displayName;
+			
 			[clickContext setObject:chat.uniqueChatID
 							 forKey:KEY_CHAT_ID];
-
+			
 			//If we have no listObject or we have a name, we are a group chat and
 			//should use the account's service icon
 			iconData = [[AIServiceIcons serviceIconForObject:chat.account
@@ -242,22 +422,22 @@
 	}
 	
 	description = [adium.contactAlertsController naturalLanguageDescriptionForEventID:eventID
-																			 listObject:listObject
-																			   userInfo:userInfo
-																		 includeSubject:NO];
-
+				   listObject:listObject
+				   userInfo:userInfo
+				   includeSubject:NO];
+	
 	if (([eventID isEqualToString:CONTACT_STATUS_ONLINE_YES] ||
-	   [eventID isEqualToString:CONTACT_STATUS_ONLINE_NO] ||
-	   [eventID isEqualToString:CONTACT_STATUS_AWAY_YES] ||
-	   [eventID isEqualToString:CONTACT_SEEN_ONLINE_YES] ||
-	   [eventID isEqualToString:CONTACT_SEEN_ONLINE_NO]) && 
+		 [eventID isEqualToString:CONTACT_STATUS_ONLINE_NO] ||
+		 [eventID isEqualToString:CONTACT_STATUS_AWAY_YES] ||
+		 [eventID isEqualToString:CONTACT_SEEN_ONLINE_YES] ||
+		 [eventID isEqualToString:CONTACT_SEEN_ONLINE_NO]) && 
 		[(AIListContact *)listObject contactListStatusMessage]) {
 		NSString *statusMessage = [[adium.contentController filterAttributedString:[(AIListContact *)listObject contactListStatusMessage]
-																	 usingFilterType:AIFilterContactList
-																		   direction:AIFilterIncoming
-																			 context:listObject] string];
+									usingFilterType:AIFilterContactList
+									direction:AIFilterIncoming
+									context:listObject] string];
 		statusMessage = [[[statusMessage stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] mutableCopy] autorelease];
-
+		
 		/* If the message contains line breaks, start it on a new line */
 		description = [NSString stringWithFormat:@"%@:%@%@",
 					   description,
@@ -268,7 +448,7 @@
 	if (listObject && [adium.contactAlertsController isContactStatusEvent:eventID]) {
 		identifier = listObject.internalObjectID;
 	}
-
+	
 	NSAssert5((title || description),
 			  @"Growl notify error: EventID %@, listObject %@, userInfo %@\nGave Title \"%@\" description \"%@\"",
 			  eventID,
@@ -277,34 +457,106 @@
 			  title,
 			  description);
 	
+	AILog(@"Posting Growl notification: Event ID: %@, listObject: %@, chat: %@, description: %@",
+		  eventID, listObject, chat, description);
+	
 	[GrowlApplicationBridge notifyWithTitle:title
 								description:description
 						   notificationName:eventID
 								   iconData:iconData
-								   priority:0
+								   priority:[[details objectForKey:KEY_GROWL_PRIORITY] integerValue]
 								   isSticky:[[details objectForKey:KEY_GROWL_ALERT_STICKY] boolValue]
 							   clickContext:clickContext
 								 identifier:identifier];
-
-	return YES;
 }
 
-/*!
- * @brief Returns our details pane, an instance of <tt>CBGrowlAlertDetailPane</tt>
- */
-- (AIModularPane *)detailsPaneForActionID:(NSString *)actionID
+- (void)postMultipleEventID:(NSString *)eventID
+					 sticky:(BOOL)sticky
+				   priority:(NSInteger)priority
+			  forListObject:(AIListObject *)listObject
+					forChat:(AIChat *)chat
+				  withCount:(NSUInteger)count
 {
-    return [CBGrowlAlertDetailPane actionDetailsPane];
-}
-
-/*!
- * @brief Allow multiple actions?
- *
- * This action should not be performed multiple times for the same triggering event.
- */
-- (BOOL)allowMultipleActionsWithID:(NSString *)actionID
-{
-	return NO;
+	NSString			*title, *description;
+	NSData				*iconData = nil;
+	NSMutableDictionary	*clickContext = [NSMutableDictionary dictionary];
+	NSString			*identifier = nil;
+	
+	[clickContext setObject:eventID
+					 forKey:@"eventID"];
+	
+	if (listObject) {
+		if ([listObject isKindOfClass:[AIListContact class]]) {
+			//Use the parent
+			listObject = [(AIListContact *)listObject parentContact];
+			title = [listObject longDisplayName];
+		} else {
+			title = listObject.displayName;
+		}
+		
+		iconData = [listObject userIconData];
+		
+		if (!iconData) {
+			iconData = [[AIServiceIcons serviceIconForObject:listObject
+														type:AIServiceIconLarge
+												   direction:AIIconNormal] TIFFRepresentation];
+		}
+		
+		if (chat) {
+			[clickContext setObject:chat.uniqueChatID
+							 forKey:KEY_CHAT_ID];
+			
+		} else {
+			[clickContext setObject:listObject.internalObjectID
+							 forKey:KEY_LIST_OBJECT_ID];
+		}
+		
+	} else {
+		if (chat) {
+			title = chat.displayName;
+			
+			[clickContext setObject:chat.uniqueChatID
+							 forKey:KEY_CHAT_ID];
+			
+			//If we have no listObject or we have a name, we are a group chat and
+			//should use the account's service icon
+			iconData = [[AIServiceIcons serviceIconForObject:chat.account
+														type:AIServiceIconLarge
+												   direction:AIIconNormal] TIFFRepresentation];
+			
+		} else {
+			title = @"Adium";
+		}
+	}
+	
+	description = [adium.contactAlertsController descriptionForCombinedEventID:eventID
+				   forListObject:listObject
+				   forChat:chat
+				   withCount:count];
+	
+	if (listObject && [adium.contactAlertsController isContactStatusEvent:eventID]) {
+		identifier = listObject.internalObjectID;
+	}
+	
+	NSAssert5((title || description),
+			  @"Growl notify error: EventID %@, listObject %@, chat %@\nGave Title \"%@\" description \"%@\"",
+			  eventID,
+			  listObject,
+			  chat,
+			  title,
+			  description);
+	
+	AILog(@"Posting combined Growl notification: Event ID: %@, listObject: %@, chat: %@, description: %@",
+		  eventID, listObject, chat, description);
+	
+	[GrowlApplicationBridge notifyWithTitle:title
+								description:description
+						   notificationName:eventID
+								   iconData:iconData
+								   priority:priority
+								   isSticky:sticky
+							   clickContext:clickContext
+								 identifier:identifier];
 }
 
 #pragma mark Growl

@@ -22,6 +22,7 @@
 #import <AdiumLibpurple/SLPurpleCocoaAdapter.h>
 #import "AMPurpleTuneTooltip.h"
 #import "AIIRCServicesPasswordPlugin.h"
+#import "AIAnnoyingIRCMessagesHiderPlugin.h"
 
 @implementation CBPurpleServicePlugin
 
@@ -55,7 +56,7 @@
 	[ESJabberService registerService];
 	[ESYahooService registerService];
 	[ESYahooJapanService registerService];	
-	[ESZephyrService registerService];
+	//[ESZephyrService registerService];
 	[ESMeanwhileService registerService];
 	
 	[SLPurpleCocoaAdapter pluginDidLoad];
@@ -66,6 +67,9 @@
 	
 	ircPasswordPlugin = [[AIIRCServicesPasswordPlugin alloc] init];
 	[ircPasswordPlugin installPlugin];
+	
+	messageHiderPlugin = [[AIAnnoyingIRCMessagesHiderPlugin alloc] init];
+	[messageHiderPlugin installPlugin];
 }
 
 - (void)uninstallPlugin
@@ -76,6 +80,9 @@
 	
 	[ircPasswordPlugin uninstallPlugin];
 	[ircPasswordPlugin release];
+	
+	[messageHiderPlugin uninstallPlugin];
+	[messageHiderPlugin release];
 }
 
 @end

@@ -176,7 +176,7 @@
     NSArray	*keys = [[notification userInfo] objectForKey:@"Keys"];
 
     //If the display name changed, we resize the tabs
-    if (notification == nil || [keys containsObject:@"Display Name"]) {
+    if (notification == nil || [keys containsObject:@"Display Name"] || [keys containsObject:@"Account Joined"]) {
 		[self setLabel:[self label]];
 		[self updateTabStatusIcon];
     } else if ([keys containsObject:@"UnviewedContent"]) {
@@ -286,10 +286,10 @@
 	
 	//Multi-user chats won't have status icons
 	if (!image && messageViewController.chat.isGroupChat) {
-		BOOL accountOnline = messageViewController.chat.account.online;
+		BOOL displayOnline = messageViewController.chat.account.online && [messageViewController.chat boolValueForProperty:@"Account Joined"];
 		
 		image = [AIStatusIcons statusIconForStatusName:nil
-											statusType:accountOnline ? AIAvailableStatusType : AIOfflineStatusType
+											statusType:displayOnline ? AIAvailableStatusType : AIOfflineStatusType
 											  iconType:AIStatusIconTab
 											 direction:AIIconNormal];
 	} else if (!image) {
@@ -342,9 +342,25 @@
 
 - (NSInteger)objectCount
 {
-	//return 0 to disable the badge
-    return ([[adium.preferenceController preferenceForKey:KEY_TABBAR_SHOW_UNREAD_COUNT group:PREF_GROUP_DUAL_WINDOW_INTERFACE] boolValue] ?
-			self.chat.unviewedContentCount : 0);
+	if (self.chat.isGroupChat) {
+		if ([[adium.preferenceController preferenceForKey:KEY_TABBAR_SHOW_UNREAD_COUNT_GROUP
+													group:PREF_GROUP_DUAL_WINDOW_INTERFACE] boolValue]) {
+			if ([[adium.preferenceController preferenceForKey:KEY_TABBAR_SHOW_UNREAD_MENTION_ONLYGROUP
+														group:PREF_GROUP_DUAL_WINDOW_INTERFACE] boolValue]) {
+				return self.chat.unviewedMentionCount;
+			} else {
+				return self.chat.unviewedContentCount;
+			}
+		}
+	} else {
+		if ([[adium.preferenceController preferenceForKey:KEY_TABBAR_SHOW_UNREAD_COUNT
+													group:PREF_GROUP_DUAL_WINDOW_INTERFACE] boolValue]) {
+			return self.chat.unviewedContentCount;
+		}
+	}
+	
+	// Returning 0 disables it.
+	return 0;
 }
 
 - (void)setCountColor:(NSColor *)color
